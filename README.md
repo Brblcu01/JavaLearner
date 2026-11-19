@@ -27,6 +27,9 @@ Scorciatoie nel quiz: `A`–`F` o `1`–`6` per scegliere, `Invio` per verificar
   Ogni snippet di codice è stato compilato ed eseguito con `javac --release 17`.
 - Elenco argomenti e parametri d'esame: `src/app/core/topics.ts`.
 - I progressi stanno nel `localStorage` del browser; da **Storico → Backup** si esportano/importano in JSON.
+- **Offline**: nella build di produzione un service worker (`ngsw-config.json`) mette in cache app, domande,
+  icone e font al primo avvio; dopo l'app funziona senza rete. Con `npm start` (sviluppo) il service worker è spento.
+- **iPhone**: Safari → Condividi → Aggiungi alla schermata Home. Serve HTTPS (o localhost) perché il service worker si attivi.
 
 Formato di una domanda:
 
