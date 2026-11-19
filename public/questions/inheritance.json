@@ -1,0 +1,319 @@
+{
+  "topic": "inheritance",
+  "keyPoints": [
+    {
+      "title": "Prima le dichiarazioni",
+      "body": "NOTA PER L'ESAME: verificare innanzitutto che le dichiarazioni di classi e interfacce siano valide, poi cercare gli errori nel codice. Una classe estende una sola classe ma può implementare più interfacce; un'interfaccia può estendere più interfacce ma non può estendere una classe né implementare un'interfaccia."
+    },
+    {
+      "title": "Regole dell'overriding",
+      "body": "Il metodo che sovrascrive deve avere la stessa firma, un tipo di ritorno uguale o covariante (sottotipo), un modificatore di accesso uguale o meno restrittivo, e non può dichiarare eccezioni checked nuove o più ampie (può dichiararne meno, o sottotipi). I metodi `private`, `final` e `static` non vengono sovrascritti; un metodo di istanza e uno statico con la stessa firma non compilano."
+    },
+    {
+      "title": "Polimorfismo solo sui metodi di istanza",
+      "body": "Il metodo sovrascritto da eseguire si sceglie a runtime in base al tipo dell'oggetto. Per gli attributi e i metodi statici non c'è polimorfismo: conta il tipo del riferimento (hiding). Il tipo del riferimento decide anche quali metodi si possono invocare: su un riferimento `Animal` non si può chiamare un metodo dichiarato solo in `Dog` senza cast."
+    },
+    {
+      "title": "Metodi sovrascritti nel costruttore",
+      "body": "Se il costruttore della superclasse invoca un metodo sovrascritto, viene eseguita la versione della sottoclasse (virtual method invocation), anche se i campi della sottoclasse non sono ancora stati inizializzati e valgono ancora il loro default (`null`, `0`)."
+    },
+    {
+      "title": "Cast e instanceof",
+      "body": "L'upcast è implicito; il downcast richiede un cast esplicito e, se l'oggetto non è del tipo indicato, lancia `ClassCastException` a runtime. Un cast o un `instanceof` tra classi senza relazione (o verso un'interfaccia non implementata da una classe `final`) non compila. `null instanceof X` vale `false`."
+    },
+    {
+      "title": "Membri delle interfacce",
+      "body": "I campi di un'interfaccia sono sempre `public static final` e vanno inizializzati. I metodi senza corpo sono `public abstract`; sono ammessi anche metodi `default`, `static` (invocabili solo come `NomeInterfaccia.metodo()`) e `private` (anche `private static`, da Java 9). Non sono ammessi `protected`, `final`, `private default` o `static default`."
+    },
+    {
+      "title": "Conflitti tra metodi default",
+      "body": "Se una classe eredita due metodi `default` con la stessa firma da interfacce non correlate, deve sovrascrivere il metodo, altrimenti non compila. Nel metodo può richiamare una versione specifica con `NomeInterfaccia.super.m()`, ma solo per un'interfaccia implementata direttamente. `super.m()` si riferisce alla superclasse, non alle interfacce."
+    },
+    {
+      "title": "Le classi vincono sulle interfacce",
+      "body": "Se un metodo con la stessa firma arriva sia dalla catena delle superclassi sia da un metodo `default`, vince quello della classe. Attenzione: se il metodo della superclasse ha visibilità minore di `public`, la sottoclasse non compila perché si ridurrebbe la visibilità del metodo dell'interfaccia. Una classe astratta ha costruttori, che vengono invocati dalle sottoclassi concrete, ma non può essere istanziata con `new`."
+    }
+  ],
+  "questions": [
+    {
+      "id": "inheritance-001",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "class Animal {\n    void makeNoise() { System.out.print(\"noise \"); }\n}\nclass Dog extends Animal {\n    void makeNoise() { System.out.print(\"bark \"); }\n    void playDead() { System.out.print(\"roll \"); }\n}\npublic class Main {\n    public static void main(String[] args) {\n        Animal[] animals = { new Animal(), new Dog() };\n        for (Animal a : animals) {\n            a.makeNoise();\n            if (a instanceof Dog) {\n                ((Dog) a).playDead();\n            }\n        }\n    }\n}",
+      "options": [
+        "`noise noise roll `",
+        "`noise bark `",
+        "`noise bark roll `",
+        "Compilation fails because `playDead()` is not defined in `Animal`.",
+        "A `ClassCastException` is thrown."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`makeNoise()` è sovrascritto: il polimorfismo sceglie la versione in base all'oggetto reale, quindi stampa `noise ` per l'`Animal` e `bark ` per il `Dog`. `playDead()` esiste solo in `Dog`: chiamarlo su un riferimento `Animal` non compilerebbe, ma qui c'è il cast esplicito `((Dog) a)`, eseguito solo dopo il controllo con `instanceof`, quindi non c'è `ClassCastException`.",
+      "source": "JSE17 DEV - 8 Inheritance"
+    },
+    {
+      "id": "inheritance-002",
+      "difficulty": 1,
+      "prompt": "Which three field declarations compile inside an interface? (Choose three.)",
+      "code": null,
+      "options": [
+        "`private int x = 1;`",
+        "`int x = 1;`",
+        "`int x;`",
+        "`static final int x = 1;`",
+        "`protected int x = 1;`",
+        "`public static final int x = 1;`"
+      ],
+      "correct": [
+        1,
+        3,
+        5
+      ],
+      "explanation": "I campi di un'interfaccia sono sempre costanti implicitamente `public static final`: si possono scrivere tutti, in parte o nessuno dei tre modificatori, quindi `int x = 1;`, `static final int x = 1;` e `public static final int x = 1;` sono equivalenti. Essendo `final` devono essere inizializzati (`int x;` non compila). `private` e `protected` non sono ammessi sui campi di un'interfaccia.",
+      "source": "JSE17 DEV - 8 Inheritance"
+    },
+    {
+      "id": "inheritance-003",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "class Animal { }\nclass Dog extends Animal { }\npublic class Main {\n    public static void main(String[] args) {\n        Animal animal = new Animal();\n        System.out.print(\"A \");\n        Dog d = (Dog) animal;\n        System.out.print(\"B\");\n    }\n}",
+      "options": [
+        "`A B`",
+        "`A ` followed by a `ClassCastException`",
+        "Compilation fails because a cast from `Animal` to `Dog` is not allowed.",
+        "`A ` followed by a `NullPointerException`",
+        "Compilation fails because the cast is redundant."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Il downcast da `Animal` a `Dog` compila perché i due tipi sono nella stessa gerarchia e un riferimento `Animal` potrebbe puntare a un `Dog`. A runtime però l'oggetto è un semplice `Animal`, quindi dopo la stampa di `A ` la JVM lancia `ClassCastException`. Un cast verso una classe senza relazione (ad esempio `(String) animal`) non compilerebbe neanche.",
+      "source": "JSE17 DEV - 8 Inheritance"
+    },
+    {
+      "id": "inheritance-004",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "class Animal {\n    Animal() { print(); }\n    void print() { System.out.print(\"Animal \"); }\n}\nclass Dog extends Animal {\n    String name = \"Rex\";\n    @Override\n    void print() { System.out.print(name + \" \"); }\n}\npublic class Main {\n    public static void main(String[] args) {\n        Animal a = new Dog();\n        a.print();\n    }\n}",
+      "options": [
+        "`Animal Rex `",
+        "`Rex Rex `",
+        "`null Rex `",
+        "`Animal Animal `",
+        "A `NullPointerException` is thrown."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Il costruttore di `Animal` invoca `print()`, e per il polimorfismo (virtual method invocation) viene eseguita la versione di `Dog`, anche durante la costruzione. In quel momento però l'inizializzatore del campo `name` di `Dog` non è ancora stato eseguito (avviene dopo il ritorno da `super()`), quindi `name` vale `null`. Concatenare `null` non lancia eccezioni. La seconda chiamata trova il campo inizializzato e stampa `Rex `.",
+      "source": "JSE17 DEV - 8 Inheritance"
+    },
+    {
+      "id": "inheritance-005",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "class A {\n    String name = \"A\";\n    String get() { return name; }\n}\nclass B extends A {\n    String name = \"B\";\n    String get() { return name; }\n}\npublic class Main {\n    public static void main(String[] args) {\n        A a = new B();\n        System.out.println(a.name + a.get() + ((B) a).name);\n    }\n}",
+      "options": [
+        "`BBB`",
+        "`ABA`",
+        "`AAB`",
+        "`ABB`",
+        "Compilation fails because the field `name` is declared twice."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Il polimorfismo vale per i metodi sovrascritti, non per gli attributi. `a.name` usa il tipo del riferimento (`A`), quindi `A`. `a.get()` esegue la versione di `B`, che legge il campo `name` di `B`: `B`. Dopo il cast a `B` il campo visto è quello di `B`: `B`. Dichiarare nella sottoclasse un campo con lo stesso nome è lecito: nasconde quello della superclasse senza sostituirlo.",
+      "source": "JSE17 DEV - 8 Inheritance"
+    },
+    {
+      "id": "inheritance-006",
+      "difficulty": 2,
+      "prompt": "Given the class `Base`, which two methods can be declared in a subclass of `Base` and compile? (Choose two.)",
+      "code": "import java.io.*;\nclass Base {\n    protected Number calc(int x) throws IOException { return 0; }\n}",
+      "options": [
+        "`Number calc(int x) { return 1; }`",
+        "`public Integer calc(int x) { return 1; }`",
+        "`protected Object calc(int x) { return 1; }`",
+        "`public Number calc(int x) throws Exception { return 1; }`",
+        "`private Number calc(int x) { return 1; }`",
+        "`protected Number calc(int x) throws FileNotFoundException { return 1; }`"
+      ],
+      "correct": [
+        1,
+        5
+      ],
+      "explanation": "`public Integer calc(int x)` è valido: `public` è meno restrittivo di `protected`, `Integer` è un tipo di ritorno covariante di `Number` e il metodo può non dichiarare eccezioni. Anche `throws FileNotFoundException` è valido perché è un sottotipo di `IOException`. Non compilano: l'accesso di package e `private` (più restrittivi di `protected`), il ritorno `Object` (supertipo, non sottotipo) e `throws Exception` (eccezione checked più ampia).",
+      "source": "JSE17 DEV - 8 Inheritance"
+    },
+    {
+      "id": "inheritance-007",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "class Animal {\n    public void eat() throws Exception { System.out.print(\"Animal\"); }\n}\nclass Dog extends Animal {\n    public void eat() { System.out.print(\"Dog\"); }\n}\npublic class Main {\n    public static void main(String[] args) {\n        Animal a = new Dog();\n        Dog d = new Dog();\n        d.eat();\n        a.eat();\n    }\n}",
+      "options": [
+        "`DogDog`",
+        "`DogAnimal`",
+        "Compilation fails because `Dog.eat()` must declare `throws Exception`.",
+        "An exception is thrown at runtime.",
+        "Compilation fails because of the call `a.eat()`."
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "Il metodo che sovrascrive può dichiarare meno eccezioni, quindi `Dog.eat()` senza `throws` è un overriding valido e `d.eat()` compila. Il controllo delle eccezioni checked però avviene a compile time sul tipo del riferimento: `a` è di tipo `Animal`, il cui `eat()` dichiara `throws Exception`, e il `main` non la gestisce né la dichiara. Errore: \"unreported exception Exception\".",
+      "source": "JSE17 DEV - 8 Inheritance"
+    },
+    {
+      "id": "inheritance-008",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "interface Int {\n    default void m() { System.out.print(\"Int \"); }\n}\ninterface Cab {\n    default void m() { System.out.print(\"Cab \"); }\n}\nclass AA implements Int, Cab {\n    public void m() {\n        Cab.super.m();\n        Int.super.m();\n        System.out.print(\"AA\");\n    }\n}\npublic class Main {\n    public static void main(String[] args) {\n        Int i = new AA();\n        i.m();\n    }\n}",
+      "options": [
+        "`Int Cab AA`",
+        "`Cab Int AA`",
+        "`Int AA`",
+        "`AA`",
+        "Compilation fails because `AA` inherits two default methods with the same signature."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Due metodi `default` con la stessa firma da interfacce diverse creano un conflitto che la classe deve risolvere sovrascrivendo il metodo; qui `AA` lo fa, quindi il codice compila (senza l'override non compilerebbe). Con la sintassi `NomeInterfaccia.super.m()` si invoca la versione di un'interfaccia implementata direttamente, nell'ordine scritto: prima `Cab`, poi `Int`. Il riferimento di tipo `Int` non cambia nulla: parte l'override di `AA`.",
+      "source": "JSE17 DEV - 8 Inheritance"
+    },
+    {
+      "id": "inheritance-009",
+      "difficulty": 3,
+      "prompt": "Which statement, inserted at `// INSERT`, allows the code to compile?",
+      "code": "interface Int {\n    default void m() { System.out.print(\"Int \"); }\n}\ninterface Cab extends Int {\n    default void m() { System.out.print(\"Cab \"); }\n}\nclass AA implements Cab {\n    public void m() {\n        // INSERT\n        System.out.print(\"AA\");\n    }\n}",
+      "options": [
+        "`Int.super.m();`",
+        "`super.m();`",
+        "`Cab.super().m();`",
+        "`Cab.super.m();`",
+        "`Int.super.m(); Cab.super.m();`"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Con `NomeInterfaccia.super.m()` si può richiamare solo il metodo di un'interfaccia implementata direttamente: `AA` implementa `Cab`, quindi `Cab.super.m()` compila. `Int` è solo una superinterfaccia indiretta, quindi `Int.super.m()` non compila (\"not an enclosing class\"), da solo o insieme all'altra chiamata. `super.m()` cerca `m()` nella superclasse `Object`, che non lo ha. `Cab.super()` non è una sintassi valida.",
+      "source": "JSE17 DEV - 8 Inheritance"
+    },
+    {
+      "id": "inheritance-010",
+      "difficulty": 2,
+      "prompt": "Which three method declarations compile inside an interface? (Choose three.)",
+      "code": null,
+      "options": [
+        "`void bounce();`",
+        "`protected void x();`",
+        "`static void compute() { }`",
+        "`final void f();`",
+        "`private default void g() { }`",
+        "`private void helper() { }`"
+      ],
+      "correct": [
+        0,
+        2,
+        5
+      ],
+      "explanation": "Un metodo senza corpo è implicitamente `public abstract`, quindi `void bounce();` compila. I metodi `static` con corpo sono ammessi da Java 8, quelli `private` con corpo da Java 9 (non vengono ereditati). Non compilano: `protected` (non ammesso nelle interfacce), `final` (non ha senso su un metodo astratto) e `private default` (un metodo default è sempre pubblico).",
+      "source": "JSE17 DEV - 8 Inheritance"
+    },
+    {
+      "id": "inheritance-011",
+      "difficulty": 3,
+      "prompt": "Given the classes below, which two return types can replace `XXX` so that the code compiles without errors? (Choose two.)",
+      "code": "import java.util.*;\nclass Base {\n    public List<? extends Number> m() { return null; }\n}\nclass Sub extends Base {\n    public XXX m() { return null; }\n}",
+      "options": [
+        "`List<Object>`",
+        "`List<Integer>`",
+        "`Collection<Number>`",
+        "`List<? super Number>`",
+        "`ArrayList<Integer>`"
+      ],
+      "correct": [
+        1,
+        4
+      ],
+      "explanation": "Il tipo di ritorno dell'override deve essere un sottotipo di `List<? extends Number>`. `List<Integer>` rispetta la wildcard (`Integer` estende `Number`) e `ArrayList<Integer>` è anche covariante sul tipo base. `List<Object>` e `List<? super Number>` non rispettano il limite superiore della wildcard. `Collection<Number>` è un supertipo di `List`, quindi non è covariante.",
+      "source": "JSE17 DEV - 8 Inheritance"
+    },
+    {
+      "id": "inheritance-012",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "abstract class Shape {\n    Shape() { System.out.print(\"S\"); }\n    abstract double area();\n}\nclass Square extends Shape {\n    Square() { System.out.print(\"Q\"); }\n    double area() { return 4; }\n}\npublic class Main {\n    public static void main(String[] args) {\n        Shape s = new Square();\n        System.out.print(s.area());\n    }\n}",
+      "options": [
+        "`Q4.0`",
+        "`SQ4`",
+        "`SQ4.0`",
+        "`QS4.0`",
+        "Compilation fails because an abstract class cannot have a constructor."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Una classe astratta non si può istanziare con `new`, ma ha comunque costruttori, che vengono invocati dalle sottoclassi concrete tramite `super()`: prima si stampa `S`, poi `Q`. `area()` è implementato in `Square` e, per il polimorfismo, viene invocato tramite il riferimento `Shape`. Il valore `4` viene restituito come `double`, quindi si stampa `4.0`.",
+      "source": "JSE17 DEV - 8 Inheritance"
+    },
+    {
+      "id": "inheritance-013",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "class Animal {\n    static String type() { return \"Animal\"; }\n    String name() { return \"animal\"; }\n}\nclass Horse extends Animal {\n    static String type() { return \"Horse\"; }\n    String name() { return \"horse\"; }\n}\npublic class Main {\n    public static void main(String[] args) {\n        Animal a = new Horse();\n        System.out.println(a.type() + \" \" + a.name() + \" \" + Horse.type());\n    }\n}",
+      "options": [
+        "`Horse horse Horse`",
+        "`Animal animal Horse`",
+        "`Animal horse Horse`",
+        "`Horse animal Horse`",
+        "Compilation fails because a static method cannot be redefined."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "I metodi statici non vengono sovrascritti ma solo ridefiniti (hiding): non c'è polimorfismo e conta il tipo del riferimento, quindi `a.type()` invoca la versione di `Animal` (compila, al massimo con un warning). `name()` è un metodo di istanza sovrascritto, quindi parte la versione di `Horse`. `Horse.type()` invoca direttamente il metodo di `Horse`.",
+      "source": "JSE17 DEV - 8 Inheritance"
+    },
+    {
+      "id": "inheritance-014",
+      "difficulty": 3,
+      "prompt": "Given the declarations below, which two expressions compile when used as the argument of `System.out.println()`? (Choose two.)",
+      "code": "interface Vehicle { }\nclass Animal { }\nfinal class Horse extends Animal { }\nclass Car { }\n// in main:\nAnimal a = new Horse();\nHorse h = new Horse();",
+      "options": [
+        "`a instanceof Horse`",
+        "`h instanceof Vehicle`",
+        "`h instanceof Car`",
+        "`a instanceof Vehicle`",
+        "`h instanceof String`"
+      ],
+      "correct": [
+        0,
+        3
+      ],
+      "explanation": "`instanceof` non compila quando il compilatore può dimostrare che il cast è impossibile. `a instanceof Horse` compila (vale `true`). `a instanceof Vehicle` compila perché `Animal` non è `final` e una sua sottoclasse potrebbe implementare `Vehicle` (vale `false`). `Horse` invece è `final` e non implementa `Vehicle`, quindi `h instanceof Vehicle` non compila; `Car` e `String` non hanno relazione con `Horse`.",
+      "source": "JSE17 DEV - 8 Inheritance"
+    },
+    {
+      "id": "inheritance-015",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "class Base {\n    public void hello() { System.out.print(\"Base \"); }\n}\ninterface Greeter {\n    default void hello() { System.out.print(\"Greeter \"); }\n}\nclass Child extends Base implements Greeter { }\npublic class Main {\n    public static void main(String[] args) {\n        Greeter g = new Child();\n        g.hello();\n    }\n}",
+      "options": [
+        "`Greeter `",
+        "`Base Greeter `",
+        "`Base `",
+        "Compilation fails because `Child` must override `hello()`.",
+        "Compilation fails because `Child` inherits `hello()` from both `Base` and `Greeter`."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Prima regola dei metodi default: le classi vincono sulle interfacce. `Child` eredita `hello()` da `Base`, che implementa anche il metodo di `Greeter`, quindi non c'è conflitto e viene eseguito `Base.hello()` anche tramite un riferimento `Greeter`. Attenzione: se `Base.hello()` non fosse `public`, il codice non compilerebbe, perché si ridurrebbe la visibilità del metodo dell'interfaccia.",
+      "source": "JSE17 DEV - 8 Inheritance"
+    }
+  ]
+}

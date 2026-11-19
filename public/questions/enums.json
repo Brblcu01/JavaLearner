@@ -1,0 +1,315 @@
+{
+  "topic": "enums",
+  "keyPoints": [
+    {
+      "title": "Costanti enum",
+      "body": "Le costanti di un'enum sono implicitamente `public static final` e sono istanze del tipo enum (non stringhe né interi). Si separano con la virgola; il punto e virgola dopo l'ultima costante è obbligatorio solo se seguono campi, costruttori o metodi. Il confronto con `==` è corretto perché ogni costante esiste in un'unica istanza."
+    },
+    {
+      "title": "Costruttori sempre privati",
+      "body": "Il costruttore di un'enum è implicitamente `private`: si può scrivere `private` o nessun modificatore, mentre `public` e `protected` non compilano. Non si può mai invocare con `new` (\"enum classes may not be instantiated\"). Tutti i costruttori vengono eseguiti una volta per costante quando l'enum viene inizializzata, al primo utilizzo."
+    },
+    {
+      "title": "Metodi ereditati da java.lang.Enum",
+      "body": "Ogni enum ha i metodi statici `values()` (array delle costanti nell'ordine di dichiarazione) e `valueOf(String)`, e i metodi di istanza `name()`, `ordinal()` (da zero), `toString()` e `compareTo()` (basato sull'ordine di dichiarazione). `valueOf` distingue maiuscole e minuscole e lancia `IllegalArgumentException` se il nome non esiste."
+    },
+    {
+      "title": "toString() vs name()",
+      "body": "`toString()` si può ridefinire, `name()` no (è `final`) e restituisce sempre il nome dichiarato. `valueOf()` cerca la costante in base al nome dichiarato, non al risultato di `toString()`. Anche `compareTo()`, `equals()` e `hashCode()` sono `final` in `java.lang.Enum`."
+    },
+    {
+      "title": "Niente extends, sì implements",
+      "body": "Un'enum estende implicitamente `java.lang.Enum`, quindi non può usare `extends`, ma può implementare interfacce. I modificatori `final` e `abstract` non sono ammessi sulla dichiarazione dell'enum. Un'enum annidata in una classe può essere `private`, `protected` o `static` (lo è comunque implicitamente). In Java 17 è ammessa anche un'enum locale dentro un metodo (da Java 16)."
+    },
+    {
+      "title": "Corpi specifici delle costanti",
+      "body": "Una costante può avere un proprio corpo tra parentesi graffe, che ridefinisce i metodi dell'enum solo per quella costante. Se l'enum dichiara un metodo `abstract`, ogni costante deve implementarlo nel proprio corpo, altrimenti il codice non compila."
+    },
+    {
+      "title": "Enum nello switch",
+      "body": "Nelle etichette `case` di uno switch su un'enum si usa il nome semplice della costante (`case RED:`): in Java 17 la forma qualificata `case Light.RED:` non compila. Nello switch classico vale il fall-through fino al primo `break`."
+    },
+    {
+      "title": "Switch expression esaustive",
+      "body": "Una switch expression su un'enum deve coprire tutti i valori possibili: o elenca tutte le costanti, o aggiunge un `default`. Se manca anche una sola costante e non c'è `default`, il codice non compila (\"the switch expression does not cover all possible input values\")."
+    }
+  ],
+  "questions": [
+    {
+      "id": "enums-001",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "enum Season { WINTER, SPRING, SUMMER, FALL }\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println(Season.SUMMER.ordinal() + \" \" + Season.valueOf(\"FALL\"));\n    }\n}",
+      "options": [
+        "`3 FALL`",
+        "`2 FALL`",
+        "`2 3`",
+        "`3 3`",
+        "Compilation fails."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`ordinal()` restituisce la posizione della costante nella dichiarazione, contando da zero: `SUMMER` è la terza costante, quindi `2`. `valueOf(\"FALL\")` restituisce la costante `FALL`, che concatenata a una stringa usa `toString()` e stampa il suo nome, non l'ordinale.",
+      "source": "JSE17 DEV - 7 Enum"
+    },
+    {
+      "id": "enums-002",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "enum Size {\n    S(1), M(2);\n    private int v;\n    Size(int v) { this.v = v; }\n}\npublic class Main {\n    public static void main(String[] args) {\n        Size s = new Size(3);\n        System.out.println(s);\n    }\n}",
+      "options": [
+        "`3`",
+        "`S`",
+        "`null`",
+        "An exception is thrown at runtime.",
+        "Compilation fails."
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "Il costruttore di un'enum è sempre privato, anche quando non si scrive il modificatore, e non può essere invocato con `new`: il compilatore segnala \"enum classes may not be instantiated\". Le istanze di un'enum sono solo le costanti dichiarate (`S` e `M`), che ricevono i loro valori tra parentesi tonde.",
+      "source": "JSE17 DEV - 7 Enum"
+    },
+    {
+      "id": "enums-003",
+      "difficulty": 1,
+      "prompt": "Which two constructor declarations can replace the constructor in the enum below so that it compiles? (Choose two.)",
+      "code": "enum Size {\n    S(1), M(2);\n    private int v;\n    Size(int v) { this.v = v; }\n}",
+      "options": [
+        "`public Size(int v) { this.v = v; }`",
+        "`private Size(int v) { this.v = v; }`",
+        "`protected Size(int v) { this.v = v; }`",
+        "`Size(int v) { this.v = v; }`",
+        "`final Size(int v) { this.v = v; }`"
+      ],
+      "correct": [
+        1,
+        3
+      ],
+      "explanation": "Il costruttore di un'enum può essere solo privato: si può dichiarare esplicitamente `private` oppure senza modificatore, nel qual caso è comunque implicitamente privato. `public` e `protected` non compilano (\"modifier ... not allowed here\"). `final` non è mai ammesso su un costruttore.",
+      "source": "JSE17 DEV - 7 Enum"
+    },
+    {
+      "id": "enums-004",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "enum Season { WINTER, SPRING, SUMMER, FALL }\npublic class Main {\n    public static void main(String[] args) {\n        Season s = Season.valueOf(\"summer\");\n        System.out.println(s.ordinal());\n    }\n}",
+      "options": [
+        "`2`",
+        "`-1`",
+        "`null`",
+        "An `IllegalArgumentException` is thrown.",
+        "Compilation fails."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`valueOf()` cerca la costante con esattamente quel nome e distingue maiuscole e minuscole. Non esiste una costante `summer` (solo `SUMMER`), quindi a runtime viene lanciata `IllegalArgumentException` (\"No enum constant Season.summer\"). Il metodo non restituisce mai `null` né `-1`, e il compilatore non controlla il contenuto della stringa.",
+      "source": "JSE17 DEV - 7 Enum"
+    },
+    {
+      "id": "enums-005",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "enum CoffeeSize {\n    BIG(8), HUGE(10), OVERWHELMING(16);\n    private int ounces;\n    CoffeeSize(int ounces) { this.ounces = ounces; }\n    public int getOunces() { return ounces; }\n}\npublic class Main {\n    public static void main(String[] args) {\n        for (CoffeeSize cs : CoffeeSize.values())\n            System.out.print(cs + \"=\" + cs.getOunces() + \" \");\n    }\n}",
+      "options": [
+        "`BIG=8 HUGE=10 OVERWHELMING=16 `",
+        "`0=8 1=10 2=16 `",
+        "`OVERWHELMING=16 HUGE=10 BIG=8 `",
+        "`BIG=0 HUGE=0 OVERWHELMING=0 `",
+        "Compilation fails because the constructor is not private."
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "`values()` restituisce un array con tutte le costanti nell'ordine di dichiarazione. Ogni costante ha ricevuto il proprio valore tramite il costruttore (`BIG(8)` ecc.), recuperato dal getter. Stampare una costante usa `toString()`, che di default restituisce il nome. Il costruttore senza modificatore è implicitamente privato, quindi compila.",
+      "source": "JSE17 DEV - 7 Enum"
+    },
+    {
+      "id": "enums-006",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "enum CoffeeSize {\n    BIG(8), HUGE(10),\n    OVERWHELMING(16) {\n        public String getLidCode() { return \"A\"; }\n    };\n    private int ounces;\n    CoffeeSize(int ounces) { this.ounces = ounces; }\n    public String getLidCode() { return \"B\"; }\n}\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println(CoffeeSize.OVERWHELMING.getLidCode()\n            + CoffeeSize.BIG.getLidCode() + CoffeeSize.HUGE.getLidCode());\n    }\n}",
+      "options": [
+        "`BBB`",
+        "`ABB`",
+        "`AAA`",
+        "`BAA`",
+        "Compilation fails."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Il blocco tra graffe dopo `OVERWHELMING(16)` è un corpo specifico per quella costante, che ridefinisce `getLidCode()` solo per lei: restituisce `A`. Le altre costanti usano l'implementazione generale dell'enum, che restituisce `B`. Il punto e virgola dopo il corpo della costante è obbligatorio perché seguono altre dichiarazioni.",
+      "source": "JSE17 DEV - 7 Enum"
+    },
+    {
+      "id": "enums-007",
+      "difficulty": 2,
+      "prompt": "Which three statements about enums are true? (Choose three.)",
+      "code": null,
+      "options": [
+        "An enum can extend another class if that class is abstract.",
+        "An enum can implement one or more interfaces.",
+        "An enum can be declared `final` to prevent other enums from extending it.",
+        "Enum constants are implicitly `public`, `static` and `final`.",
+        "An enum constructor can be declared `public`.",
+        "The static method `values()` returns the constants in the order in which they are declared."
+      ],
+      "correct": [
+        1,
+        3,
+        5
+      ],
+      "explanation": "Ogni enum estende implicitamente `java.lang.Enum`, quindi non può usare `extends`, ma può implementare interfacce. Le costanti sono implicitamente `public static final` e `values()` le restituisce nell'ordine di dichiarazione. Il modificatore `final` non è ammesso sulla dichiarazione di un'enum (non compila) e il costruttore può essere solo privato.",
+      "source": "JSE17 DEV - 7 Enum"
+    },
+    {
+      "id": "enums-008",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "enum Light { RED, YELLOW, GREEN }\npublic class Main {\n    public static void main(String[] args) {\n        Light l = Light.YELLOW;\n        switch (l) {\n            case RED:\n                System.out.print(\"stop \");\n            case YELLOW:\n                System.out.print(\"slow \");\n            case GREEN:\n                System.out.print(\"go \");\n                break;\n            default:\n                System.out.print(\"? \");\n        }\n    }\n}",
+      "options": [
+        "`slow `",
+        "`slow go ? `",
+        "`stop slow go `",
+        "`slow go `",
+        "Compilation fails because the case labels are not qualified with `Light`."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Nello switch su un'enum le etichette usano il nome semplice della costante (`case RED:`); in Java 17 la forma qualificata `case Light.RED:` sarebbe un errore di compilazione. Si entra in `case YELLOW` e, mancando il `break`, si prosegue in fall-through nel `case GREEN`, dove il `break` interrompe lo switch prima del `default`.",
+      "source": "JSE17 DEV - 7 Enum"
+    },
+    {
+      "id": "enums-009",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "enum Level { LOW, MEDIUM, HIGH }\npublic class Main {\n    public static void main(String[] args) {\n        Level a = Level.LOW;\n        System.out.print((a.compareTo(Level.HIGH) < 0) + \" \");\n        System.out.print((Level.valueOf(\"MEDIUM\") == Level.MEDIUM) + \" \");\n        System.out.print(Level.HIGH.name().equals(Level.HIGH.toString()) + \" \");\n        System.out.print(Level.values()[2]);\n    }\n}",
+      "options": [
+        "`true false true HIGH`",
+        "`false true true HIGH`",
+        "`true true false 2`",
+        "`true true true HIGH`",
+        "`true true true MEDIUM`"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`compareTo()` segue l'ordine di dichiarazione: `LOW` viene prima di `HIGH`, quindi il risultato è negativo (`true`). `valueOf()` restituisce l'unica istanza della costante, quindi `==` dà `true`. Senza ridefinizione `toString()` restituisce lo stesso valore di `name()`. `values()[2]` è la terza costante, `HIGH`.",
+      "source": "JSE17 DEV - 7 Enum"
+    },
+    {
+      "id": "enums-010",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "enum Op {\n    PLUS {\n        int apply(int a, int b) { return a + b; }\n    },\n    MINUS,\n    TIMES {\n        int apply(int a, int b) { return a * b; }\n    };\n    abstract int apply(int a, int b);\n}\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println(Op.PLUS.apply(2, 3) + Op.TIMES.apply(2, 3));\n    }\n}",
+      "options": [
+        "`11`",
+        "`56`",
+        "Compilation fails.",
+        "An `AbstractMethodError` is thrown at runtime.",
+        "`5` followed by an exception."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Un'enum può dichiarare un metodo `abstract`, ma allora ogni costante deve implementarlo nel proprio corpo. `MINUS` non ha un corpo, quindi il compilatore segnala un errore (non si può creare un'istanza di un tipo astratto). Se `MINUS` implementasse `apply`, il codice stamperebbe `11` (5 + 6, somma tra interi).",
+      "source": "JSE17 DEV - 7 Enum"
+    },
+    {
+      "id": "enums-011",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "enum Planet {\n    EARTH, MARS;\n    @Override\n    public String toString() {\n        return name().charAt(0) + name().substring(1).toLowerCase();\n    }\n}\npublic class Main {\n    public static void main(String[] args) {\n        Planet p = Planet.valueOf(\"EARTH\");\n        System.out.println(p + \" \" + p.name() + \" \" + Planet.valueOf(\"Mars\"));\n    }\n}",
+      "options": [
+        "`Earth EARTH Mars`",
+        "`Earth Earth Mars`",
+        "`EARTH EARTH MARS`",
+        "An `IllegalArgumentException` is thrown.",
+        "Compilation fails because `toString()` cannot be overridden in an enum."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`toString()` si può ridefinire in un'enum (a differenza di `name()`, che è `final`), quindi il codice compila. `valueOf()` però cerca la costante in base al nome dichiarato, non al valore di `toString()`: `valueOf(\"EARTH\")` funziona, mentre `valueOf(\"Mars\")` lancia `IllegalArgumentException` prima che la riga venga stampata. Senza quell'errore si leggerebbe `Earth EARTH ...`.",
+      "source": "JSE17 DEV - 7 Enum"
+    },
+    {
+      "id": "enums-012",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "enum Letter {\n    A, B, C;\n    Letter() { System.out.print(\"x\"); }\n}\npublic class Main {\n    public static void main(String[] args) {\n        System.out.print(\"start \");\n        Letter l = Letter.B;\n        System.out.print(\" \" + Letter.C + l);\n    }\n}",
+      "options": [
+        "`start x CB`",
+        "`xxxstart  CB`",
+        "`start xx CB`",
+        "`start  CB`",
+        "`start xxx CB`"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "Le costanti di un'enum sono campi statici: vengono create tutte insieme, una sola volta, quando l'enum viene inizializzata, cioè al primo utilizzo (`Letter.B`), quindi dopo la stampa di `start `. Il costruttore viene eseguito una volta per ciascuna delle tre costanti (`xxx`), anche se nel codice ne vengono usate solo due. L'accesso successivo a `Letter.C` non crea nulla di nuovo.",
+      "source": "JSE17 DEV - 7 Enum"
+    },
+    {
+      "id": "enums-013",
+      "difficulty": 3,
+      "prompt": "Which three enum declarations compile when placed inside the body of a top-level class `Outer`? (Choose three.)",
+      "code": null,
+      "options": [
+        "`private enum A { X }`",
+        "`final enum C { Z }`",
+        "`static enum B { Y }`",
+        "`abstract enum D { W }`",
+        "`protected enum E { V }`"
+      ],
+      "correct": [
+        0,
+        2,
+        4
+      ],
+      "explanation": "Un'enum annidata in una classe è un membro e accetta i modificatori di accesso `private`, `protected` e `public`, oltre a `static` (ridondante, perché un'enum annidata è sempre implicitamente statica). I modificatori `final` e `abstract` non sono mai ammessi su un'enum: il compilatore decide da solo se è final o meno.",
+      "source": "JSE17 DEV - 7 Enum"
+    },
+    {
+      "id": "enums-014",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "enum Size {\n    S(42), M(44);\n    private int cm;\n    Size(int cm) { this.cm = cm; }\n    public int getCm() { return cm; }\n    public void setCm(int cm) { this.cm = cm; }\n}\npublic class Main {\n    public static void main(String[] args) {\n        Size first = Size.S;\n        first.setCm(40);\n        Size second = Size.valueOf(\"S\");\n        System.out.println(second.getCm() + \" \" + (first == second));\n    }\n}",
+      "options": [
+        "`42 true`",
+        "`40 false`",
+        "`42 false`",
+        "`40 true`",
+        "Compilation fails because enum fields must be final."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "I campi di un'enum non devono essere per forza `final`: con un setter lo stato di una costante si può modificare. Ogni costante esiste in un'unica istanza, quindi `valueOf(\"S\")` restituisce lo stesso oggetto referenziato da `first`: si vede il valore modificato `40` e `==` dà `true`.",
+      "source": "JSE17 DEV - 7 Enum"
+    },
+    {
+      "id": "enums-015",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "enum Day { MON, TUE, SAT, SUN }\npublic class Main {\n    public static void main(String[] args) {\n        Day d = Day.SUN;\n        String r = switch (d) {\n            case MON, TUE -> \"work\";\n            case SUN -> \"rest\";\n        };\n        System.out.println(r);\n    }\n}",
+      "options": [
+        "`rest`",
+        "`null`",
+        "A `MatchException` is thrown.",
+        "An `IncompatibleClassChangeError` is thrown.",
+        "Compilation fails."
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "Una switch expression deve essere esaustiva. Per un'enum lo è se elenca tutte le costanti oppure se ha un `default`. Qui manca `SAT` e non c'è `default`, quindi il compilatore segnala che la switch expression non copre tutti i valori possibili, anche se a runtime `d` varrebbe `SUN`. Aggiungendo `SAT` (ad esempio `case SAT, SUN -> \"rest\";`) il codice stamperebbe `rest`.",
+      "source": "JSE17 DEV - 7 Enum"
+    }
+  ]
+}

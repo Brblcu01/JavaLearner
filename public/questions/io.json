@@ -1,0 +1,311 @@
+{
+  "topic": "io",
+  "keyPoints": [
+    {
+      "title": "Stream di byte vs stream di caratteri",
+      "body": "`java.io` ha due gerarchie distinte: `InputStream`/`OutputStream` lavorano su byte, `Reader`/`Writer` su caratteri. Le classi che finiscono in `Stream` sono a byte, quelle che finiscono in `Reader`/`Writer` sono a caratteri. `read()` restituisce un `int` e vale `-1` a fine stream."
+    },
+    {
+      "title": "Filtraggio (pattern Decorator)",
+      "body": "Gli stream si compongono: `DataInputStream`, `ObjectInputStream`, `BufferedInputStream` avvolgono un altro `InputStream`, mentre `BufferedReader` avvolge un `Reader`. Non si può passare un `InputStream` a un costruttore che vuole un `Reader`: serve il ponte `InputStreamReader` (o `OutputStreamWriter`), altrimenti la compilazione fallisce."
+    },
+    {
+      "title": "Serializable è un'interfaccia marker",
+      "body": "`Serializable` non ha metodi. Se un campo di istanza non è serializzabile la compilazione riesce comunque, ma `writeObject()` lancia `NotSerializableException` a runtime. Le sottoclassi di una classe serializzabile sono automaticamente serializzabili."
+    },
+    {
+      "title": "static e transient non vengono salvati",
+      "body": "I campi `static` non fanno parte dello stato dell'oggetto e i campi `transient` vengono saltati. Alla deserializzazione un campo `transient` della classe serializzabile vale il default (`0`, `false`, `null`): né il costruttore né gli inizializzatori di quella classe vengono eseguiti."
+    },
+    {
+      "title": "Superclasse non serializzabile",
+      "body": "Se la superclasse non è `Serializable`, la sua parte di stato non viene salvata: alla deserializzazione viene invocato il suo costruttore senza argomenti (con i suoi inizializzatori). Se tale costruttore manca, `readObject()` lancia `InvalidClassException`, mentre la scrittura va a buon fine."
+    },
+    {
+      "title": "serialVersionUID",
+      "body": "Il `serialVersionUID` identifica la versione della classe. Se non è dichiarato, la JVM ne calcola uno dalla struttura della classe: modificando la classe, il valore cambia e la deserializzazione di dati vecchi fallisce con `InvalidClassException`. Dichiarandolo esplicitamente, i campi aggiunti assumono il valore di default e quelli rimossi vengono ignorati."
+    },
+    {
+      "title": "Serializzazione personalizzata",
+      "body": "Si ottiene con i metodi `private void writeObject(ObjectOutputStream)` e `private void readObject(ObjectInputStream)` nella classe serializzabile. Di solito chiamano `defaultWriteObject()`/`defaultReadObject()` e poi scrivono/leggono dati extra nello stesso ordine, ad esempio per ripristinare un campo `transient`."
+    },
+    {
+      "title": "BufferedReader, FileWriter e Console",
+      "body": "`readLine()` restituisce `null` a fine file; `mark()`/`reset()` riportano il cursore alla posizione marcata e `skip()` salta caratteri. `new FileWriter(f)` sovrascrive il file, `new FileWriter(f, true)` scrive in append; `close()` esegue il flush. `System.console()` può restituire `null` e `readPassword()` restituisce un `char[]`."
+    }
+  ],
+  "questions": [
+    {
+      "id": "io-001",
+      "difficulty": 1,
+      "prompt": "Which of the following classes are character-oriented, that is, they read or write char data rather than raw bytes? (Choose two.)",
+      "code": null,
+      "options": [
+        "`FileInputStream`",
+        "`FileReader`",
+        "`DataInputStream`",
+        "`ObjectOutputStream`",
+        "`BufferedWriter`"
+      ],
+      "correct": [
+        1,
+        4
+      ],
+      "explanation": "Le classi a caratteri derivano da `Reader` e `Writer`: `FileReader` e `BufferedWriter` lo sono. `FileInputStream`, `DataInputStream` e `ObjectOutputStream` derivano invece da `InputStream`/`OutputStream` e lavorano su byte (primitivi e oggetti vengono comunque trasferiti come byte). Regola pratica: il suffisso `Stream` indica byte, `Reader`/`Writer` indica caratteri.",
+      "source": "JSE17 DEV - 15 Fundamentals IO"
+    },
+    {
+      "id": "io-002",
+      "difficulty": 1,
+      "prompt": "Assuming the program has write access to the working directory, what is the result?",
+      "code": "import java.io.*;\n\npublic class LineCounter {\n    public static void main(String[] args) throws IOException {\n        try (var w = new FileWriter(\"data.txt\")) {\n            w.write(\"one\\ntwo\\n\\nthree\");\n        }\n        int count = 0;\n        try (var r = new BufferedReader(new FileReader(\"data.txt\"))) {\n            String line;\n            while ((line = r.readLine()) != null) {\n                count++;\n            }\n        }\n        System.out.println(count);\n    }\n}",
+      "options": [
+        "3",
+        "5",
+        "4",
+        "The loop never ends.",
+        "An EOFException is thrown at runtime."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Il file contiene le righe `one`, `two`, una riga vuota e `three`. `readLine()` restituisce la riga vuota come stringa `\"\"` (non `null`), quindi viene contata: il totale è 4. A fine file `readLine()` restituisce `null`, per cui il ciclo termina senza eccezioni: `EOFException` riguarda `DataInputStream`/`ObjectInputStream`, non i reader.",
+      "source": "JSE17 DEV - 15 Fundamentals IO"
+    },
+    {
+      "id": "io-003",
+      "difficulty": 1,
+      "prompt": "Which statement about the java.io.Serializable interface is true?",
+      "code": null,
+      "options": [
+        "It declares `writeObject()` and `readObject()`, which every implementing class must override.",
+        "A class that implements it fails to compile if one of its instance fields is not serializable.",
+        "Only a class that declares a `serialVersionUID` field is allowed to implement it.",
+        "It is a marker interface with no methods; a class opts in to serialization by implementing it."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`Serializable` è un'interfaccia marker: non dichiara alcun metodo. `writeObject()`/`readObject()` privati sono facoltativi (servono solo per la serializzazione personalizzata). Un campo non serializzabile non causa errori di compilazione ma una `NotSerializableException` a runtime. Il `serialVersionUID` è consigliato (altrimenti viene calcolato e il compilatore può dare un warning) ma non obbligatorio.",
+      "source": "JSE17 DEV - 15 Fundamentals IO"
+    },
+    {
+      "id": "io-004",
+      "difficulty": 1,
+      "prompt": "Which statement about java.io.Console is true?",
+      "code": null,
+      "options": [
+        "An instance is normally created with `new Console(System.in, System.out)`.",
+        "`readPassword()` returns a `String` containing the characters typed by the user.",
+        "`System.console()` may return `null`, for example when no interactive console is attached to the JVM.",
+        "`Console` belongs to the `java.nio.file` package."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Un `Console` si ottiene solo tramite `System.console()` (non ha costruttori pubblici) e il metodo può restituire `null` se la JVM non è collegata a una console interattiva (ad esempio con l'output rediretto o dentro un IDE): va sempre controllato. `readPassword()` restituisce un `char[]` (così l'array può essere azzerato dopo l'uso), non una `String`. La classe si trova in `java.io`.",
+      "source": "JSE17 DEV - 15 Fundamentals IO"
+    },
+    {
+      "id": "io-005",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.io.*;\n\nclass Counter implements Serializable {\n    static int instances = 0;\n    transient int cache = 10;\n    int value;\n    Counter(int v) { value = v; instances++; }\n}\n\npublic class SaveCounter {\n    public static void main(String[] args) throws Exception {\n        var bos = new ByteArrayOutputStream();\n        try (var out = new ObjectOutputStream(bos)) {\n            out.writeObject(new Counter(7));\n        }\n        Counter.instances = 5;\n        try (var in = new ObjectInputStream(\n                new ByteArrayInputStream(bos.toByteArray()))) {\n            Counter c = (Counter) in.readObject();\n            System.out.println(c.value + \" \" + c.cache + \" \" + Counter.instances);\n        }\n    }\n}",
+      "options": [
+        "7 10 1",
+        "7 0 1",
+        "7 10 5",
+        "7 0 5",
+        "0 0 5"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`value` viene serializzato e torna 7. `cache` è `transient`: non viene scritto e alla deserializzazione vale il default `0`, perché l'inizializzatore `= 10` e il costruttore di una classe `Serializable` non vengono eseguiti. `instances` è `static`: non fa parte dello stato dell'oggetto, quindi la deserializzazione non lo tocca e vale ancora 5 (l'ultimo valore assegnato).",
+      "source": "JSE17 DEV - 15 Fundamentals IO"
+    },
+    {
+      "id": "io-006",
+      "difficulty": 2,
+      "prompt": "Assuming the program has write access to the working directory, what is the result?",
+      "code": "import java.io.*;\n\nclass Engine { int hp = 100; }\n\nclass Car implements Serializable {\n    String model = \"X\";\n    Engine engine = new Engine();\n}\n\npublic class Garage {\n    public static void main(String[] args) {\n        try (var out = new ObjectOutputStream(new FileOutputStream(\"car.ser\"))) {\n            out.writeObject(new Car());\n            System.out.println(\"saved\");\n        } catch (NotSerializableException e) {\n            System.out.println(\"not serializable\");\n        } catch (IOException e) {\n            System.out.println(\"io\");\n        }\n    }\n}",
+      "options": [
+        "not serializable",
+        "saved",
+        "Compilation fails because `Engine` does not implement `Serializable`.",
+        "io"
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "Il compilatore non verifica che i campi di una classe `Serializable` siano serializzabili. A runtime `writeObject()` incontra il campo `engine` di tipo `Engine`, che non implementa `Serializable`, e lancia `NotSerializableException`. Essendo sottoclasse di `IOException` (tramite `ObjectStreamException`), viene intercettata dal primo `catch`, che è più specifico: l'ordine dei `catch` è quindi lecito e stampa `not serializable`.",
+      "source": "JSE17 DEV - 15 Fundamentals IO"
+    },
+    {
+      "id": "io-007",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.io.*;\n\nclass Animal {\n    int weight = 1;\n    Animal() { weight += 10; }\n    Animal(int w) { weight = w; }\n}\n\nclass Dog extends Animal implements Serializable {\n    String name;\n    Dog(String n, int w) { super(w); name = n; }\n}\n\npublic class Kennel {\n    public static void main(String[] args) throws Exception {\n        var bos = new ByteArrayOutputStream();\n        try (var out = new ObjectOutputStream(bos)) {\n            out.writeObject(new Dog(\"Rex\", 30));\n        }\n        try (var in = new ObjectInputStream(\n                new ByteArrayInputStream(bos.toByteArray()))) {\n            Dog d = (Dog) in.readObject();\n            System.out.println(d.name + \" \" + d.weight);\n        }\n    }\n}",
+      "options": [
+        "Rex 11",
+        "Rex 30",
+        "Rex 0",
+        "Rex 1",
+        "null 11"
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "`Dog` è serializzabile ma la superclasse `Animal` no: il campo `weight` (ereditato da `Animal`) non viene salvato. Alla deserializzazione la JVM invoca il costruttore senza argomenti della prima superclasse non serializzabile: vengono eseguiti l'inizializzatore `weight = 1` e poi `weight += 10`, quindi `weight` vale 11. `name` appartiene a `Dog` e viene ripristinato dallo stream (`Rex`); il costruttore di `Dog` non viene eseguito.",
+      "source": "JSE17 DEV - 15 Fundamentals IO"
+    },
+    {
+      "id": "io-008",
+      "difficulty": 2,
+      "prompt": "Assume java.io.* is imported and each statement appears in a method declared to throw IOException. Which statements compile? (Choose two.)",
+      "code": null,
+      "options": [
+        "`var r = new BufferedReader(new FileInputStream(\"a.txt\"));`",
+        "`var r = new BufferedReader(new InputStreamReader(new FileInputStream(\"a.txt\")));`",
+        "`var in = new ObjectInputStream(new FileReader(\"a.txt\"));`",
+        "`var w = new BufferedWriter(new FileOutputStream(\"a.txt\"));`",
+        "`var out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(\"a.txt\")));`"
+      ],
+      "correct": [
+        1,
+        4
+      ],
+      "explanation": "I decoratori accettano solo stream della stessa famiglia. `BufferedReader` vuole un `Reader`: con un `FileInputStream` non compila, serve il ponte `InputStreamReader`. `ObjectInputStream` vuole un `InputStream`, non un `FileReader`. `BufferedWriter` vuole un `Writer`, non un `FileOutputStream` (servirebbe `OutputStreamWriter`). `DataOutputStream` su `BufferedOutputStream` su `FileOutputStream` è una catena tutta a byte, quindi compila.",
+      "source": "JSE17 DEV - 15 Fundamentals IO"
+    },
+    {
+      "id": "io-009",
+      "difficulty": 2,
+      "prompt": "Assuming the program has write access to the working directory, what is the result?",
+      "code": "import java.io.*;\n\npublic class DataDemo {\n    public static void main(String[] args) throws IOException {\n        try (var out = new DataOutputStream(new FileOutputStream(\"d.bin\"))) {\n            out.writeInt(42);\n            out.writeUTF(\"hi\");\n        }\n        try (var in = new DataInputStream(new FileInputStream(\"d.bin\"))) {\n            System.out.print(in.readInt() + \" \");\n            System.out.print(in.readUTF() + \" \");\n            System.out.print(in.readInt());\n        } catch (EOFException e) {\n            System.out.print(\"EOF\");\n        }\n    }\n}",
+      "options": [
+        "42 hi -1",
+        "42 hi 0",
+        "42 hi EOF",
+        "42 hi null",
+        "Compilation fails."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "I dati vengono riletti nello stesso ordine in cui sono stati scritti (`readInt()`, poi `readUTF()`), quindi si stampa `42 hi `. La seconda `readInt()` raggiunge la fine del file: i metodi `readXxx()` di `DataInputStream` non possono restituire `-1` come valore sentinella (un `int` letto potrebbe valere proprio -1), perciò lanciano `EOFException`, che viene intercettata e stampa `EOF`.",
+      "source": "JSE17 DEV - 15 Fundamentals IO"
+    },
+    {
+      "id": "io-010",
+      "difficulty": 2,
+      "prompt": "Assuming the program has write access to the working directory, what is the result?",
+      "code": "import java.io.*;\n\npublic class AppendDemo {\n    public static void main(String[] args) throws IOException {\n        try (var w = new FileWriter(\"log.txt\")) { w.write(\"A\"); }\n        try (var w = new FileWriter(\"log.txt\")) { w.write(\"B\"); }\n        try (var w = new FileWriter(\"log.txt\", true)) {\n            w.write(\"C\");\n            w.append(\"D\");\n        }\n        try (var r = new BufferedReader(new FileReader(\"log.txt\"))) {\n            System.out.println(r.readLine());\n        }\n    }\n}",
+      "options": [
+        "ABCD",
+        "BCD",
+        "CD",
+        "BD",
+        "ABC"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`new FileWriter(\"log.txt\")` apre il file in sovrascrittura (append = `false` per default): il secondo writer cancella la `A` e scrive `B`. Il terzo writer è creato con `append = true`, quindi `C` viene aggiunta in coda; `append(\"D\")` scrive anch'esso in coda allo stream (è equivalente a `write`). La chiusura con try-with-resources esegue il flush, per cui il file contiene `BCD`.",
+      "source": "JSE17 DEV - 15 Fundamentals IO"
+    },
+    {
+      "id": "io-011",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "import java.io.*;\n\nclass Base {\n    transient int a = 5;\n    int b = 6;\n    Base() { b = 7; }\n}\n\nclass Item extends Base implements Serializable {\n    transient String label = \"default\";\n    int qty = 3;\n    Item() { a = 50; b = 60; label = \"custom\"; qty = 30; }\n}\n\npublic class Restore {\n    public static void main(String[] args) throws Exception {\n        var bos = new ByteArrayOutputStream();\n        try (var out = new ObjectOutputStream(bos)) {\n            out.writeObject(new Item());\n        }\n        try (var in = new ObjectInputStream(\n                new ByteArrayInputStream(bos.toByteArray()))) {\n            Item i = (Item) in.readObject();\n            System.out.println(i.a + \" \" + i.b + \" \" + i.label + \" \" + i.qty);\n        }\n    }\n}",
+      "options": [
+        "50 60 custom 30",
+        "0 0 null 30",
+        "5 6 default 3",
+        "5 7 default 30",
+        "5 7 null 30"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "`Base` non è serializzabile: i suoi campi non vengono salvati e alla deserializzazione viene eseguito `Base()` con i suoi inizializzatori, quindi `a = 5` (il `transient` qui è irrilevante) e `b = 6` poi `b = 7`. Per `Item`, che è serializzabile, il costruttore e gli inizializzatori NON vengono eseguiti: `qty` torna dallo stream (30), mentre `label` è `transient` e prende il default `null`, non `\"default\"`.",
+      "source": "JSE17 DEV - 15 Fundamentals IO"
+    },
+    {
+      "id": "io-012",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "import java.io.*;\n\nclass Account implements Serializable {\n    String owner;\n    transient String pin;\n    Account(String o, String p) { owner = o; pin = p; }\n\n    private void writeObject(ObjectOutputStream out) throws IOException {\n        out.defaultWriteObject();\n        out.writeObject(new StringBuilder(pin).reverse().toString());\n    }\n\n    private void readObject(ObjectInputStream in)\n            throws IOException, ClassNotFoundException {\n        in.defaultReadObject();\n        pin = (String) in.readObject() + \"!\";\n    }\n}\n\npublic class Vault {\n    public static void main(String[] args) throws Exception {\n        var bos = new ByteArrayOutputStream();\n        try (var out = new ObjectOutputStream(bos)) {\n            out.writeObject(new Account(\"ann\", \"123\"));\n        }\n        try (var in = new ObjectInputStream(\n                new ByteArrayInputStream(bos.toByteArray()))) {\n            Account a = (Account) in.readObject();\n            System.out.println(a.owner + \" \" + a.pin);\n        }\n    }\n}",
+      "options": [
+        "ann null",
+        "ann 321!",
+        "ann 123",
+        "ann 123!",
+        "null 321!"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "I metodi privati `writeObject`/`readObject` personalizzano la serializzazione. `defaultWriteObject()` salva i campi non transient (`owner`), poi viene scritta a mano la stringa `\"321\"` (il pin invertito). In lettura `defaultReadObject()` ripristina `owner = \"ann\"` e il dato extra viene letto nello stesso ordine e completato con `!`: il campo `transient` `pin` vale quindi `321!` e non `null`.",
+      "source": "JSE17 DEV - 15 Fundamentals IO"
+    },
+    {
+      "id": "io-013",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "import java.io.*;\n\npublic class MarkDemo {\n    public static void main(String[] args) throws IOException {\n        try (var r = new BufferedReader(new StringReader(\"abcdefgh\"))) {\n            System.out.print((char) r.read());\n            r.mark(10);\n            System.out.print((char) r.read());\n            System.out.print((char) r.read());\n            r.reset();\n            r.skip(2);\n            System.out.print((char) r.read());\n            System.out.print((char) r.read());\n        }\n    }\n}",
+      "options": [
+        "abcbc",
+        "abcfg",
+        "abcde",
+        "abcef",
+        "abccd"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Si legge `a`, poi `mark(10)` memorizza la posizione corrente (subito prima di `b`). Si leggono `b` e `c`; `reset()` riporta il cursore alla posizione marcata, cioè di nuovo prima di `b`. `skip(2)` salta `b` e `c`, quindi le due letture successive restituiscono `d` ed `e`: l'output complessivo è `abcde`. L'argomento di `mark()` è il numero massimo di caratteri leggibili mantenendo valido il mark.",
+      "source": "JSE17 DEV - 15 Fundamentals IO"
+    },
+    {
+      "id": "io-014",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "import java.io.*;\n\nclass Vehicle {\n    int wheels;\n    Vehicle(int w) { wheels = w; }\n}\n\nclass Bike extends Vehicle implements Serializable {\n    String brand;\n    Bike(String b) { super(2); brand = b; }\n}\n\npublic class Shop {\n    public static void main(String[] args) throws Exception {\n        var bos = new ByteArrayOutputStream();\n        try (var out = new ObjectOutputStream(bos)) {\n            out.writeObject(new Bike(\"Bianchi\"));\n            System.out.print(\"written \");\n        }\n        try (var in = new ObjectInputStream(\n                new ByteArrayInputStream(bos.toByteArray()))) {\n            Bike b = (Bike) in.readObject();\n            System.out.print(b.brand + \" \" + b.wheels);\n        } catch (InvalidClassException e) {\n            System.out.print(\"invalid\");\n        }\n    }\n}",
+      "options": [
+        "written Bianchi 2",
+        "written Bianchi 0",
+        "Compilation fails.",
+        "written invalid",
+        "An InvalidClassException is thrown by writeObject() and nothing is printed."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Il codice compila: il compilatore non controlla i requisiti della serializzazione. La scrittura riesce (la parte di `Vehicle` semplicemente non viene salvata) e si stampa `written `. In lettura, però, la JVM deve invocare il costruttore senza argomenti della prima superclasse non serializzabile (`Vehicle`), che non esiste: `readObject()` lancia `InvalidClassException` (\"no valid constructor\"), intercettata dal `catch`.",
+      "source": "JSE17 DEV - 15 Fundamentals IO"
+    },
+    {
+      "id": "io-015",
+      "difficulty": 3,
+      "prompt": "Which statements about Java object serialization are true? (Choose three.)",
+      "code": null,
+      "options": [
+        "Static fields are not written to the stream.",
+        "When an object is deserialized, the constructor of its own Serializable class is executed.",
+        "Marking a field `transient` in a class that is not `Serializable` causes a compilation error.",
+        "A subclass of a `Serializable` class is serializable even if it does not repeat `implements Serializable`.",
+        "Without an explicit `serialVersionUID`, recompiling a modified class can make previously serialized objects fail to deserialize.",
+        "`ObjectOutputStream.writeObject()` only accepts arguments whose static type implements `Serializable`."
+      ],
+      "correct": [
+        0,
+        3,
+        4
+      ],
+      "explanation": "Vere: i campi `static` non fanno parte dello stato serializzato; `Serializable` si eredita, quindi le sottoclassi sono serializzabili; senza `serialVersionUID` esplicito l'ID viene calcolato dalla struttura della classe e una modifica può causare `InvalidClassException`. False: alla deserializzazione il costruttore della classe serializzabile non viene eseguito (solo quello della prima superclasse non serializzabile); `transient` è lecito in qualunque classe; `writeObject(Object)` accetta qualsiasi oggetto e il controllo avviene a runtime (`NotSerializableException`).",
+      "source": "JSE17 DEV - 15 Fundamentals IO"
+    }
+  ]
+}

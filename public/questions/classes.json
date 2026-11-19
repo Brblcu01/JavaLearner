@@ -1,0 +1,311 @@
+{
+  "topic": "classes",
+  "keyPoints": [
+    {
+      "title": "Metodi con il nome della classe",
+      "body": "Un metodo con lo stesso nome della classe ma con un tipo di ritorno (anche `void`) NON è un costruttore: è un normale metodo. Se la classe non dichiara costruttori, il compilatore aggiunge solo quello di default senza parametri, quindi `new Employee(\"x\")` non compila."
+    },
+    {
+      "title": "Costruttore di default e super()",
+      "body": "Il costruttore di default viene aggiunto solo se non ne è stato scritto nessuno, e invoca `super()`. Se la superclasse ha solo costruttori con parametri, la sottoclasse senza costruttori (o con un costruttore che non chiama esplicitamente `super(...)`) non compila. I costruttori non si ereditano e non possono essere `final`, `static` o `abstract`."
+    },
+    {
+      "title": "this() e super()",
+      "body": "La prima istruzione di un costruttore è `this(...)` oppure `super(...)`, mai entrambe; se manca, il compilatore inserisce `super()`. Il chaining con `this()` esegue prima il corpo del costruttore chiamato. Una catena di `this()` che torna su se stessa non compila (\"recursive constructor invocation\"), mentre un campo inizializzato con `new` della stessa classe compila e produce `StackOverflowError`."
+    },
+    {
+      "title": "Ordine di inizializzazione",
+      "body": "Al caricamento della classe vengono eseguiti gli inizializzatori e i blocchi `static`, dalla superclasse alla sottoclasse e una sola volta. A ogni `new`, per ogni livello della gerarchia (dalla superclasse in giù) si eseguono gli inizializzatori di istanza e i blocchi `{ }` nell'ordine in cui sono scritti, poi il corpo del costruttore."
+    },
+    {
+      "title": "Passaggio per valore",
+      "body": "Java passa sempre una copia: per i primitivi una copia del valore, per gli oggetti una copia del riferimento. Modificare l'oggetto tramite il parametro si vede dal chiamante; riassegnare il parametro a un nuovo oggetto no. Attenzione allo shadowing: `age = age;` in un setter assegna il parametro a se stesso e il campo resta invariato."
+    },
+    {
+      "title": "Firma e var-args",
+      "body": "La firma di un metodo è nome più numero, tipo e ordine dei parametri: il tipo di ritorno non ne fa parte, quindi due metodi che differiscono solo per il ritorno non compilano. Il parametro var-arg (`int... x`) è uno solo, deve essere l'ultimo e all'interno del metodo è un array, mai `null` se non si passano argomenti."
+    },
+    {
+      "title": "Precedenze nell'overloading",
+      "body": "Il compilatore cerca nell'ordine: corrispondenza esatta, widening, boxing/unboxing, var-args. Il boxing seguito da widening è ammesso (`int` -> `Integer` -> `Object`), il widening seguito da boxing no (`int` non diventa `Long`). L'overload si sceglie a compile time in base al tipo del riferimento; con il literal `null` vince il tipo più specifico."
+    },
+    {
+      "title": "static e accesso protected",
+      "body": "Una variabile `static` ha una sola copia condivisa da tutte le istanze e un metodo statico non può accedere direttamente ai membri di istanza. Un membro `protected` è visibile nel package e nelle sottoclassi di altri package, ma in un altro package la sottoclasse vi accede solo per ereditarietà (`x`, `this.x`, un riferimento del proprio tipo), non tramite un riferimento del tipo della superclasse."
+    }
+  ],
+  "questions": [
+    {
+      "id": "classes-001",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "class Employee {\n    public void Employee(String name) {\n        System.out.print(\"Hello \" + name);\n    }\n}\npublic class Main {\n    public static void main(String[] args) {\n        Employee e = new Employee(\"Anna\");\n        e.Employee(\"Bob\");\n    }\n}",
+      "options": [
+        "`Hello Anna`",
+        "`Hello AnnaHello Bob`",
+        "`Hello Bob`",
+        "Compilation fails.",
+        "An exception is thrown at runtime."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`public void Employee(String name)` ha un tipo di ritorno, quindi è un normale metodo e non un costruttore. La classe non dichiara costruttori, perciò il compilatore aggiunge solo quello di default senza parametri: `new Employee(\"Anna\")` non compila. Con `new Employee()` il codice compilerebbe e stamperebbe `Hello Bob`.",
+      "source": "JSE17 DEV - 6 Classes,Methods,Constructors"
+    },
+    {
+      "id": "classes-002",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    static void modify(int x, int[] arr, StringBuilder sb) {\n        x = 10;\n        arr[0] = 10;\n        sb.append(\"!\");\n        sb = new StringBuilder(\"new\");\n    }\n    public static void main(String[] args) {\n        int x = 1;\n        int[] arr = {1};\n        StringBuilder sb = new StringBuilder(\"hi\");\n        modify(x, arr, sb);\n        System.out.println(x + \" \" + arr[0] + \" \" + sb);\n    }\n}",
+      "options": [
+        "`10 10 new`",
+        "`1 1 hi`",
+        "`1 10 new`",
+        "`10 10 hi!`",
+        "`1 10 hi!`"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "Il passaggio dei parametri è sempre per copia. `x` è un primitivo: il metodo modifica la sua copia e nel `main` resta `1`. Per `arr` e `sb` viene copiato il riferimento, ma l'oggetto è uno solo: `arr[0] = 10` e `append(\"!\")` modificano gli oggetti originali. Riassegnare `sb` a un nuovo `StringBuilder` cambia solo la copia locale del riferimento, quindi nel `main` si vede `hi!`.",
+      "source": "JSE17 DEV - 6 Classes,Methods,Constructors"
+    },
+    {
+      "id": "classes-003",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "class Clothing {\n    Clothing(String s) { System.out.print(\"Clothing \"); }\n}\nclass TShirt extends Clothing {\n}\npublic class Main {\n    public static void main(String[] args) {\n        new TShirt();\n        System.out.print(\"done\");\n    }\n}",
+      "options": [
+        "`Clothing done`",
+        "`done`",
+        "Compilation fails.",
+        "An exception is thrown at runtime."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`TShirt` non dichiara costruttori, quindi il compilatore aggiunge il costruttore di default, che invoca `super()`. `Clothing` però ha solo un costruttore con un parametro `String` e, avendone scritto uno, non riceve quello di default: `super()` non trova un costruttore adatto e il codice non compila. Servirebbe un costruttore in `TShirt` che chiami esplicitamente `super(\"...\")`.",
+      "source": "JSE17 DEV - 6 Classes,Methods,Constructors"
+    },
+    {
+      "id": "classes-004",
+      "difficulty": 1,
+      "prompt": "Which two method declarations compile? (Choose two.)",
+      "code": null,
+      "options": [
+        "`void a(int x...) { }`",
+        "`void a(int... x, char... y) { }`",
+        "`void a(char c, int... x) { }`",
+        "`void a(String... s, byte b) { }`",
+        "`void a(int... x) { }`"
+      ],
+      "correct": [
+        2,
+        4
+      ],
+      "explanation": "La sintassi var-arg è tipo + tre puntini + nome (`int... x`), e il metodo può avere un solo parametro var-arg, che deve essere l'ultimo. Sono validi `a(int... x)` e `a(char c, int... x)`. `int x...` ha i puntini nel posto sbagliato, `int... x, char... y` dichiara due var-arg e `String... s, byte b` mette il var-arg prima di un altro parametro.",
+      "source": "JSE17 DEV - 6 Classes,Methods,Constructors"
+    },
+    {
+      "id": "classes-005",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    static void go(Integer x) { System.out.print(\"Integer \"); }\n    static void go(long x) { System.out.print(\"long \"); }\n    static void go(int... x) { System.out.print(\"varargs \"); }\n    public static void main(String[] args) {\n        int i = 5;\n        go(i);\n        go(Integer.valueOf(5));\n        go();\n    }\n}",
+      "options": [
+        "`Integer Integer varargs`",
+        "`long Integer varargs`",
+        "`varargs Integer varargs`",
+        "`long long varargs`",
+        "Compilation fails because the call `go(i)` is ambiguous."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Il compilatore prova prima la corrispondenza esatta e il widening, poi boxing/unboxing, infine i var-args. Per `go(i)` non c'è un `go(int)`, ma il widening `int` -> `long` viene prima del boxing, quindi parte `go(long)`. `go(Integer.valueOf(5))` ha la corrispondenza esatta con `go(Integer)`. `go()` senza argomenti è applicabile solo al var-arg. Non c'è ambiguità perché le fasi hanno priorità diverse.",
+      "source": "JSE17 DEV - 6 Classes,Methods,Constructors"
+    },
+    {
+      "id": "classes-006",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    static void m(Long x) { System.out.print(\"Long\"); }\n    static void m(Object o) { System.out.print(\"Object\"); }\n    public static void main(String[] args) {\n        int i = 5;\n        m(i);\n    }\n}",
+      "options": [
+        "`Long`",
+        "`Object`",
+        "Compilation fails because no method accepts an `int`.",
+        "Compilation fails because the call is ambiguous."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Il widening seguito dal boxing non è ammesso: un `int` non può diventare `long` e poi `Long` (un `Integer` non è un `Long`), quindi `m(Long)` non è applicabile. È invece ammesso il boxing seguito dal widening: `int` -> `Integer` -> `Object`. Viene quindi invocato `m(Object)` e il codice stampa `Object`.",
+      "source": "JSE17 DEV - 6 Classes,Methods,Constructors"
+    },
+    {
+      "id": "classes-007",
+      "difficulty": 3,
+      "prompt": "Given the following class, which three statements, inserted in `main`, compile? (Choose three.)",
+      "code": "public class Main {\n    static void metodo(int x, int... c) { System.out.print(\"a\"); }\n    static void metodo(int... c) { System.out.print(\"b\"); }\n    public static void main(String[] args) {\n        // insert code here\n    }\n}",
+      "options": [
+        "`metodo(2);`",
+        "`metodo();`",
+        "`metodo(2, 3);`",
+        "`metodo(new int[]{1, 2});`",
+        "`metodo(44, new int[]{4, 5});`"
+      ],
+      "correct": [
+        1,
+        3,
+        4
+      ],
+      "explanation": "I due overload compilano, ma alcune chiamate sono ambigue. `metodo(2)` e `metodo(2, 3)` sono applicabili a entrambi i metodi e nessuno dei due è più specifico: errore \"reference to metodo is ambiguous\". `metodo()` è applicabile solo a `metodo(int...)` (il primo richiede almeno un `int`) e stampa `b`. Un `int[]` da solo può essere passato solo a `metodo(int...)` (stampa `b`), mentre `metodo(44, new int[]{4, 5})` corrisponde solo a `metodo(int, int...)` (stampa `a`).",
+      "source": "JSE17 DEV - 6 Classes,Methods,Constructors"
+    },
+    {
+      "id": "classes-008",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "class A {\n    static { System.out.print(\"A1 \"); }\n    { System.out.print(\"A2 \"); }\n    A() { System.out.print(\"A3 \"); }\n}\nclass B extends A {\n    static { System.out.print(\"B1 \"); }\n    { System.out.print(\"B2 \"); }\n    B() { System.out.print(\"B3 \"); }\n}\npublic class Main {\n    public static void main(String[] args) {\n        new B();\n        new B();\n    }\n}",
+      "options": [
+        "`A1 A2 A3 B1 B2 B3 A1 A2 A3 B1 B2 B3`",
+        "`A1 B1 A2 B2 A3 B3 A2 B2 A3 B3`",
+        "`A1 B1 A2 A3 B2 B3 A1 B1 A2 A3 B2 B3`",
+        "`B1 A1 B2 B3 A2 A3 B2 B3 A2 A3`",
+        "`A1 B1 A2 A3 B2 B3 A2 A3 B2 B3`"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "I blocchi statici vengono eseguiti una sola volta, al caricamento delle classi, dalla superclasse alla sottoclasse: `A1 B1`. A ogni `new B()` il costruttore di `B` invoca implicitamente `super()`: prima si inizializza la parte `A` (blocco di istanza `A2`, poi corpo del costruttore `A3`), poi la parte `B` (`B2`, `B3`). Alla seconda istanza i blocchi statici non vengono rieseguiti.",
+      "source": "JSE17 DEV - 6 Classes,Methods,Constructors"
+    },
+    {
+      "id": "classes-009",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "class Counter {\n    static int n;\n    int id;\n    Counter() {\n        n++;\n        id = n;\n    }\n}\npublic class Main {\n    public static void main(String[] args) {\n        Counter c1 = new Counter();\n        Counter c2 = new Counter();\n        Counter c3 = new Counter();\n        System.out.println(c1.id + \" \" + c1.n + \" \" + Counter.n);\n    }\n}",
+      "options": [
+        "`1 3 3`",
+        "`1 1 3`",
+        "`3 3 3`",
+        "`1 1 1`",
+        "Compilation fails because a static field is accessed through an instance."
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "Della variabile statica `n` esiste una sola copia condivisa da tutte le istanze: dopo tre costruzioni vale `3`, sia letta tramite il riferimento `c1.n` sia tramite `Counter.n`. Accedere a un membro statico tramite un riferimento di istanza compila (al massimo produce un warning). `id` è di istanza: per `c1` è stato assegnato quando `n` valeva `1`.",
+      "source": "JSE17 DEV - 6 Classes,Methods,Constructors"
+    },
+    {
+      "id": "classes-010",
+      "difficulty": 2,
+      "prompt": "What is the result of `new User()`?",
+      "code": "class User {\n    User() {\n        this(\"guest\");\n        System.out.print(\"A\");\n    }\n    User(String name) {\n        this(name, 0);\n        System.out.print(\"B\");\n    }\n    User(String name, int age) {\n        System.out.print(\"C\");\n    }\n}",
+      "options": [
+        "`ABC`",
+        "`A`",
+        "`CBA`",
+        "`AC`",
+        "Compilation fails because a constructor cannot call another constructor."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Con `this(...)` un costruttore invoca un altro costruttore della stessa classe (constructor chaining), e la chiamata deve essere la prima istruzione. `User()` chiama `User(String)`, che chiama `User(String, int)`: quest'ultimo (che invoca implicitamente `super()`) stampa `C` e termina, poi si completano a ritroso i corpi degli altri, stampando `B` e infine `A`.",
+      "source": "JSE17 DEV - 6 Classes,Methods,Constructors"
+    },
+    {
+      "id": "classes-011",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "class Animal { }\nclass Horse extends Animal { }\npublic class Main {\n    static void doStuff(Animal a) { System.out.print(\"Animal \"); }\n    static void doStuff(Horse h) { System.out.print(\"Horse \"); }\n    public static void main(String[] args) {\n        Animal ref = new Horse();\n        doStuff(ref);\n        doStuff(null);\n        doStuff((Horse) ref);\n    }\n}",
+      "options": [
+        "`Horse Horse Horse`",
+        "`Animal Animal Horse`",
+        "`Horse Animal Horse`",
+        "`Animal Horse Horse`",
+        "Compilation fails because the call `doStuff(null)` is ambiguous."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "L'overloading si risolve a compile time in base al tipo del riferimento, non al tipo dell'oggetto: `ref` è di tipo `Animal`, quindi parte `doStuff(Animal)`. Con il literal `null` sono applicabili entrambi i metodi, ma il compilatore sceglie il più specifico, `doStuff(Horse)` (non è ambiguo perché `Horse` è sottotipo di `Animal`). Dopo il cast il riferimento è di tipo `Horse`.",
+      "source": "JSE17 DEV - 6 Classes,Methods,Constructors"
+    },
+    {
+      "id": "classes-012",
+      "difficulty": 3,
+      "prompt": "Given the following class, which two statements compile? (Choose two.)",
+      "code": "class OverloadingDemo {\n    public int max(int n1, int n2, int n3) { return 0; }\n    public float max(long n1, long n2, long n3) { return 0.0f; }\n    public float max(float n1, float n2, float n3) { return 0.0f; }\n}\n// OverloadingDemo demo = new OverloadingDemo();",
+      "options": [
+        "`int r = demo.max(45L, 98L, 2L);`",
+        "`float r = demo.max(45, 98, 2L);`",
+        "`float r = demo.max(45.0, 0.056f, 2);`",
+        "`float r = demo.max(45L, 0.056f, 2L);`",
+        "`int r = demo.max(45, 98, 2.0f);`"
+      ],
+      "correct": [
+        1,
+        3
+      ],
+      "explanation": "`max(45, 98, 2L)`: i due `int` vengono allargati a `long` e si sceglie `max(long, long, long)`, che restituisce un `float`. `max(45L, 0.056f, 2L)`: i `long` vengono allargati a `float` e parte `max(float, float, float)`. `max(45L, 98L, 2L)` restituisce `float`, che non si assegna a un `int` senza cast; lo stesso per `max(45, 98, 2.0f)`. `45.0` è un `double`, e nessun overload accetta un `double`: il widening non va mai verso un tipo più piccolo.",
+      "source": "JSE17 DEV - 6 Classes,Methods,Constructors"
+    },
+    {
+      "id": "classes-013",
+      "difficulty": 3,
+      "prompt": "Given the two files below, which two lines compile when placed in the method `test`? (Choose two.)",
+      "code": "// File pkg1/A.java\npackage pkg1;\npublic class A {\n    protected int x;\n}\n\n// File pkg2/B.java\npackage pkg2;\nimport pkg1.A;\npublic class B extends A {\n    void test(A a, B b) {\n        // insert line here\n    }\n}",
+      "options": [
+        "`a.x = 2;`",
+        "`x = 1;`",
+        "`new A().x = 4;`",
+        "`b.x = 3;`"
+      ],
+      "correct": [
+        1,
+        3
+      ],
+      "explanation": "Un membro `protected` è visibile nel proprio package e nelle sottoclassi di altri package, ma fuori dal package la sottoclasse può accedervi solo per ereditarietà: tramite `x` (cioè `this.x`) o tramite un riferimento del proprio tipo (`b.x`). Tramite un riferimento di tipo `A`, compreso un nuovo oggetto `A`, l'accesso è vietato: errore \"x has protected access in A\".",
+      "source": "JSE17 DEV - 6 Classes,Methods,Constructors"
+    },
+    {
+      "id": "classes-014",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "class Employee {\n    private int age;\n    public void setAge(int age) {\n        age = age;\n    }\n    public int getAge() {\n        return age;\n    }\n}\npublic class Main {\n    public static void main(String[] args) {\n        Employee e = new Employee();\n        e.setAge(30);\n        System.out.println(e.getAge());\n    }\n}",
+      "options": [
+        "`0`",
+        "`30`",
+        "Compilation fails because the parameter hides the field.",
+        "Compilation fails because a variable is assigned to itself.",
+        "An exception is thrown at runtime."
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "Nel metodo `setAge` il parametro `age` nasconde (shadowing) il campo con lo stesso nome: `age = age;` assegna il parametro a se stesso e il campo resta al valore di default `0`. Il compilatore non segnala errori (al massimo un warning). Per assegnare il campo serve `this.age = age;`; dichiarare il parametro `final` trasformerebbe l'assegnazione inutile in un errore di compilazione.",
+      "source": "JSE17 DEV - 6 Classes,Methods,Constructors"
+    },
+    {
+      "id": "classes-015",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "class Part {\n    private Part part = new Part();\n    public Part() {\n        System.out.print(\"Part \");\n    }\n}\npublic class Main {\n    public static void main(String[] args) {\n        try {\n            new Part();\n        } catch (Exception e) {\n            System.out.print(\"Exception\");\n        }\n    }\n}",
+      "options": [
+        "`Part `",
+        "`Part Part ` repeated until a `StackOverflowError` is thrown",
+        "`Exception`",
+        "Compilation fails because of the recursive field initialization.",
+        "Nothing is printed and a `StackOverflowError` is thrown."
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "Il codice compila: una classe può avere attributi del proprio tipo. Gli inizializzatori dei campi vengono eseguiti prima del corpo del costruttore, quindi ogni `new Part()` crea subito un altro `Part` prima di arrivare alla `print`: la ricorsione è infinita e nulla viene stampato. `StackOverflowError` è un `Error`, non una `Exception`, quindi il `catch` non lo intercetta. Il compilatore rifiuta invece una catena ricorsiva di `this()`.",
+      "source": "JSE17 DEV - 6 Classes,Methods,Constructors"
+    }
+  ]
+}

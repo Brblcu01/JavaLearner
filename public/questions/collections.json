@@ -1,0 +1,364 @@
+{
+  "topic": "collections",
+  "keyPoints": [
+    {
+      "title": "Generics e polimorfismo: le wildcard",
+      "body": "Se `Dog` estende `Animal`, `List<Dog>` NON è una `List<Animal>`: `List<Animal> l = new ArrayList<Dog>();` non compila. Per assegnazioni polimorfiche servono le wildcard: con `? extends T` si può leggere come `T` ma aggiungere solo `null`; con `? super T` si possono aggiungere `T` e sottotipi ma si legge solo come `Object`. Con `List<?>` si legge come `Object` e si aggiunge solo `null`."
+    },
+    {
+      "title": "Usi invalidi dei generics e diamond",
+      "body": "Non compilano: `new T()`, `new T[10]`, un campo `static T`, una classe generica che estende `Throwable`/`Exception`. Il diamond `<>` è ammesso solo nella creazione dell'oggetto (`List<String> l = new ArrayList<>();`), mai nel tipo del riferimento (`List<> l` non compila) né nella forma `new ArrayList<<>>()`. I wildcard non si usano nella `new` (`new ArrayList<? extends Animal>()` non compila). I generics esistono solo a compile-time (type erasure): mescolare raw type e generics produce solo warning."
+    },
+    {
+      "title": "List.of, List.copyOf e Arrays.asList",
+      "body": "`List.of()` e `List.copyOf()` creano liste immutabili: `add`, `remove`, `set` lanciano `UnsupportedOperationException` a runtime (il codice compila). Non accettano elementi `null` (`NullPointerException`). `Arrays.asList()` invece restituisce una lista a dimensione fissa collegata all'array: `set` funziona, `add`/`remove` lanciano `UnsupportedOperationException`."
+    },
+    {
+      "title": "Modifiche durante l'iterazione",
+      "body": "Aggiungere o rimuovere elementi da una lista mentre la si scorre con un for-each compila ma tipicamente lancia `ConcurrentModificationException` alla chiamata successiva di `next()`. Trappola d'esame: se si rimuove il penultimo elemento, `hasNext()` restituisce `false` e il ciclo termina senza eccezione. Per rimuovere in sicurezza si usa `Iterator.remove()` (dopo `next()`) oppure `removeIf()`."
+    },
+    {
+      "title": "Queue e Deque: metodi che lanciano o restituiscono null",
+      "body": "In `Queue`: `offer`/`poll`/`peek` restituiscono `false`/`null` in caso di problemi, mentre `add`/`remove`/`element` lanciano eccezioni (`remove()` ed `element()` su coda vuota lanciano `NoSuchElementException`). In `Deque`, `push` e `pop` operano sulla TESTA (pila), `add`/`offer` inseriscono in coda. `ArrayDeque` non accetta `null`. `PriorityQueue` estrae con `poll` in ordine di priorità (compareTo o Comparator) e accetta duplicati."
+    },
+    {
+      "title": "TreeSet e TreeMap: ordinamento e viste collegate",
+      "body": "Gli elementi (o le chiavi) devono essere `Comparable` oppure va fornito un `Comparator`, altrimenti si ha `ClassCastException` a runtime già al primo inserimento. `null` con ordinamento naturale lancia `NullPointerException`. Metodi di navigazione: `lower` (<), `floor` (<=), `ceiling` (>=), `higher` (>), che restituiscono `null` se l'elemento non esiste. `subSet`/`subMap`/`headSet`/`tailSet` restituiscono viste backed: inserire nella vista una chiave fuori range lancia `IllegalArgumentException`."
+    },
+    {
+      "title": "equals, hashCode e Map",
+      "body": "Contratto: se `a.equals(b)` è true allora gli hashCode devono coincidere; hashCode uguali NON implicano equals true. `HashSet`/`HashMap` usano prima `hashCode()` per il bucket, poi `equals()`. `Map` NON estende `Collection`; le viste sono `keySet()` (Set), `values()` (Collection) ed `entrySet()` (Set). `HashMap` accetta una chiave `null`, `TreeMap` no. `put` restituisce il valore precedente (o `null`)."
+    },
+    {
+      "title": "Comparable, Comparator e Collections",
+      "body": "`Comparable<T>` definisce l'ordine naturale con `compareTo(T)`; `Comparator<T>` definisce criteri alternativi con `compare(T, T)` e si compone con `comparing`, `thenComparing`, `reversed`. `Collections.sort(List<T>)` richiede `T extends Comparable<? super T>`, altrimenti errore di compilazione. `Collections.binarySearch` richiede una lista ordinata e, se l'elemento manca, restituisce `-(punto di inserimento) - 1`."
+    }
+  ],
+  "questions": [
+    {
+      "id": "collections-001",
+      "difficulty": 1,
+      "prompt": "Given the following code fragment, what is the output?",
+      "code": "Deque<String> d = new ArrayDeque<>();\nd.add(\"A\");\nd.add(\"B\");\nd.push(\"C\");\nd.offerLast(\"D\");\nSystem.out.print(d.pop());\nSystem.out.print(d.peekLast());\nSystem.out.println(d);",
+      "options": [
+        "AD[B, C, D]",
+        "CB[A, B]",
+        "CD[A, B, D]",
+        "DA[C, A, B]"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`add` inserisce in coda: [A, B]. `push` inserisce in testa: [C, A, B]. `offerLast` aggiunge in coda: [C, A, B, D]. `pop` rimuove dalla TESTA e restituisce `C`, lasciando [A, B, D]; `peekLast` legge senza rimuovere l'ultimo elemento, `D`. Output: `CD[A, B, D]`. Chi pensa che `push`/`pop` lavorino sulla coda ottiene risposte sbagliate come `DA...`.",
+      "source": "JSE17 DEV - 14 Generics-Collection"
+    },
+    {
+      "id": "collections-002",
+      "difficulty": 2,
+      "prompt": "Given the declarations below, which statements compile when inserted on the next line? (Choose three.)",
+      "code": "List<? extends Number> a = new ArrayList<Integer>();\nList<? super Integer> b = new ArrayList<Number>();",
+      "options": [
+        "a.add(1);",
+        "a.add(null);",
+        "Number n = b.get(0);",
+        "b.add(1);",
+        "b.add(2.5);",
+        "Number n = a.get(0);"
+      ],
+      "correct": [
+        1,
+        3,
+        5
+      ],
+      "explanation": "Con `? extends Number` il compilatore non conosce il tipo reale (potrebbe essere `List<Double>`), quindi l'unica aggiunta sicura è `null`; la lettura invece restituisce un `Number`. Con `? super Integer` si possono aggiungere `Integer` (quindi `b.add(1)` con autoboxing compila), ma `2.5` è un `Double` e non compila; la lettura restituisce solo `Object`, per cui `Number n = b.get(0);` non compila senza cast. Il tipo a destra (`ArrayList<Integer>`) non conta: conta il tipo del riferimento.",
+      "source": "JSE17 DEV - 14 Generics-Collection"
+    },
+    {
+      "id": "collections-003",
+      "difficulty": 2,
+      "prompt": "What is the result of executing the following code fragment?",
+      "code": "List<String> a = Arrays.asList(\"x\", \"y\");\na.set(0, \"z\");\nSystem.out.print(a);\nList<String> b = List.of(\"x\", \"y\");\nb.set(0, \"z\");\nSystem.out.print(b);",
+      "options": [
+        "[z, y][z, y]",
+        "[x, y][x, y]",
+        "[z, y] and then an UnsupportedOperationException is thrown",
+        "An UnsupportedOperationException is thrown and nothing is printed",
+        "Compilation fails."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`Arrays.asList` restituisce una lista a dimensione fissa ma modificabile negli elementi: `set` funziona e viene stampato `[z, y]`. `List.of` crea invece una lista immutabile: qualsiasi metodo modificatore, compreso `set`, compila ma lancia `UnsupportedOperationException` a runtime. Su `Arrays.asList` sarebbero `add` e `remove` a lanciare l'eccezione, non `set`.",
+      "source": "JSE17 DEV - 14 Generics-Collection"
+    },
+    {
+      "id": "collections-004",
+      "difficulty": 1,
+      "prompt": "Which Map implementation always iterates its keys in their natural sort order, regardless of insertion order?",
+      "code": null,
+      "options": [
+        "HashMap",
+        "TreeMap",
+        "LinkedHashMap",
+        "Hashtable"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`TreeMap` è implementata con un albero red-black ed è una `SortedMap`/`NavigableMap`: chiavi, valori ed entry vengono visitati secondo l'ordine delle chiavi (naturale o dato da un `Comparator`). `HashMap` e `Hashtable` non garantiscono alcun ordine; `LinkedHashMap` mantiene l'ordine di inserimento, non quello naturale.",
+      "source": "JSE17 DEV - 14 Generics-Collection"
+    },
+    {
+      "id": "collections-005",
+      "difficulty": 2,
+      "prompt": "What is the output of the following code fragment?",
+      "code": "TreeSet<Integer> s = new TreeSet<>(List.of(10, 20, 30, 40));\nSystem.out.println(s.floor(25) + \" \" + s.higher(30) + \" \"\n    + s.ceiling(40) + \" \" + s.lower(10));",
+      "options": [
+        "30 40 40 10",
+        "20 40 null 10",
+        "20 30 40 null",
+        "20 40 40 null"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`floor(25)` è il più grande elemento <= 25, cioè 20. `higher(30)` è il più piccolo elemento strettamente > 30, cioè 40. `ceiling(40)` è il più piccolo elemento >= 40, quindi 40 stesso. `lower(10)` cerca un elemento strettamente < 10: non esiste e il metodo restituisce `null` (nessuna eccezione). Ricorda l'ordine: lower (<) - floor (<=) - ceiling (>=) - higher (>).",
+      "source": "JSE17 DEV - 14 Generics-Collection"
+    },
+    {
+      "id": "collections-006",
+      "difficulty": 3,
+      "prompt": "What is the result of executing the following code fragment?",
+      "code": "TreeMap<String, Integer> m = new TreeMap<>();\nm.put(\"a\", 1);\nm.put(\"d\", 4);\nm.put(\"h\", 8);\nSortedMap<String, Integer> sub = m.subMap(\"b\", \"g\");\nm.put(\"c\", 3);\nsub.put(\"e\", 5);\nSystem.out.print(m.size() + \" \" + sub + \" \");\nsub.put(\"z\", 26);\nSystem.out.print(m.size());",
+      "options": [
+        "5 {c=3, d=4, e=5} 6",
+        "5 {c=3, d=4, e=5} and then an IllegalArgumentException is thrown",
+        "4 {d=4, e=5} and then an IllegalArgumentException is thrown",
+        "5 {c=3, d=4, e=5} 5",
+        "Compilation fails."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`subMap(\"b\", \"g\")` restituisce una vista backed sull'intervallo [b, g). Le modifiche sono visibili in entrambe le direzioni: `c` inserita nella mappa compare nella vista, `e` inserita nella vista compare nella mappa, quindi la mappa ha 5 entry e la vista è `{c=3, d=4, e=5}`. Inserire nella vista una chiave fuori range (`z`) lancia `IllegalArgumentException: key out of range`, per cui l'ultima stampa non avviene.",
+      "source": "JSE17 DEV - 14 Generics-Collection"
+    },
+    {
+      "id": "collections-007",
+      "difficulty": 2,
+      "prompt": "What is the output of the following code fragment?",
+      "code": "Map<String, Integer> m = new HashMap<>();\nSystem.out.print(m.put(\"x\", 1));\nSystem.out.print(m.put(\"x\", 2));\nm.putIfAbsent(\"x\", 3);\nm.putIfAbsent(\"y\", 4);\nSystem.out.println(m.get(\"x\") + m.get(\"y\") + \" \" + m.size());",
+      "options": [
+        "null16 2",
+        "null26 2",
+        "null15 2",
+        "126 2",
+        "null124 2"
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "`put` restituisce il valore precedentemente associato alla chiave: la prima volta `null`, la seconda `1`. `putIfAbsent(\"x\", 3)` non fa nulla perché `x` vale già 2; `putIfAbsent(\"y\", 4)` inserisce y=4. Nell'ultima riga `m.get(\"x\") + m.get(\"y\")` è una somma tra `Integer` (2 + 4 = 6) valutata prima della concatenazione con la stringa; la mappa contiene 2 chiavi. Output: `null16 2`.",
+      "source": "JSE17 DEV - 14 Generics-Collection"
+    },
+    {
+      "id": "collections-008",
+      "difficulty": 2,
+      "prompt": "What is the output of the following code fragment?",
+      "code": "List<Integer> list = new ArrayList<>(List.of(5, 1, 9, 3));\nCollections.sort(list);\nSystem.out.print(Collections.binarySearch(list, 9) + \" \");\nSystem.out.print(Collections.binarySearch(list, 4));",
+      "options": [
+        "3 -3",
+        "3 -2",
+        "2 -3",
+        "3 2",
+        "The result is unpredictable."
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "Dopo l'ordinamento la lista è [1, 3, 5, 9], quindi la ricerca binaria è affidabile. 9 si trova all'indice 3. 4 non è presente: andrebbe inserito all'indice 2, e `binarySearch` restituisce `-(2) - 1 = -3`. Il risultato sarebbe imprevedibile solo se la lista non fosse ordinata.",
+      "source": "JSE17 DEV - 14 Generics-Collection"
+    },
+    {
+      "id": "collections-009",
+      "difficulty": 3,
+      "prompt": "Given the following code, what is the result?",
+      "code": "import java.util.*;\n\nclass Box {\n    int w;\n    Box(int w) { this.w = w; }\n}\n\npublic class Test {\n    public static void main(String[] args) {\n        Set<Box> boxes = new TreeSet<>();\n        boxes.add(new Box(1));\n        System.out.println(boxes.size());\n    }\n}",
+      "options": [
+        "1",
+        "0",
+        "Compilation fails.",
+        "A NullPointerException is thrown at runtime.",
+        "A ClassCastException is thrown at runtime."
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "`TreeSet<Box>` non pone vincoli di tipo a compile-time, quindi il codice compila. A runtime però il `TreeSet` creato senza `Comparator` deve confrontare gli elementi con l'ordine naturale: già al primo `add` prova a convertire `Box` in `Comparable` e lancia `ClassCastException`. Per evitarlo, `Box` deve implementare `Comparable<Box>` oppure si passa un `Comparator` al costruttore.",
+      "source": "JSE17 DEV - 14 Generics-Collection"
+    },
+    {
+      "id": "collections-010",
+      "difficulty": 3,
+      "prompt": "What is the output of the following code fragment?",
+      "code": "List<String> fruits = new ArrayList<>(List.of(\"pear\", \"fig\", \"apple\", \"kiwi\", \"date\"));\nfruits.sort(Comparator.comparing(String::length)\n                      .thenComparing(Comparator.reverseOrder()));\nSystem.out.println(fruits);",
+      "options": [
+        "[fig, date, kiwi, pear, apple]",
+        "[fig, pear, kiwi, date, apple]",
+        "[apple, pear, kiwi, date, fig]",
+        "[fig, pear, date, kiwi, apple]",
+        "Compilation fails."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Il primo criterio ordina per lunghezza crescente: `fig` (3), poi le parole di 4 lettere, infine `apple` (5). A parità di lunghezza interviene `thenComparing(Comparator.reverseOrder())`, che ordina in ordine alfabetico inverso: pear, kiwi, date. Risultato `[fig, pear, kiwi, date, apple]`. `[fig, date, kiwi, pear, apple]` sarebbe il risultato con l'ordine naturale come secondo criterio.",
+      "source": "JSE17 DEV - 14 Generics-Collection"
+    },
+    {
+      "id": "collections-011",
+      "difficulty": 2,
+      "prompt": "Which class declarations compile? (Choose two.)",
+      "code": null,
+      "options": [
+        "`class Box<T extends Number> { double d(T t) { return t.doubleValue(); } }`",
+        "`class Box<T> { static T item; }`",
+        "`class Box<T> { T[] arr = new T[5]; }`",
+        "`class Box<T> { <U> U id(U u) { return u; } }`",
+        "`class Box<T> { T make() { return new T(); } }`",
+        "`class Box<T> extends Exception { }`"
+      ],
+      "correct": [
+        0,
+        3
+      ],
+      "explanation": "Con il bound `T extends Number` si possono invocare i metodi di `Number` su `T`, e un metodo generico può dichiarare un proprio parametro di tipo `<U>`: entrambe compilano. Non compilano: un campo `static` di tipo `T` (il parametro appartiene all'istanza), la creazione di un array `new T[5]` e di un oggetto `new T()` (il tipo è cancellato a runtime), e una classe generica che estende `Throwable`/`Exception`.",
+      "source": "JSE17 DEV - 14 Generics-Collection"
+    },
+    {
+      "id": "collections-012",
+      "difficulty": 1,
+      "prompt": "Which statement fails to compile?",
+      "code": null,
+      "options": [
+        "`var l = new ArrayList<>();`",
+        "`List<String> l = new ArrayList<>();`",
+        "`List<> l = new ArrayList<String>();`",
+        "`Map<String, List<Integer>> m = new HashMap<>();`"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "L'operatore diamond `<>` può comparire solo nell'espressione di creazione dell'oggetto, mai nel tipo del riferimento: `List<> l` non compila. `var l = new ArrayList<>();` è legale (il tipo dedotto è `ArrayList<Object>`), e il diamond funziona anche con tipi annidati come `Map<String, List<Integer>>`.",
+      "source": "JSE17 DEV - 14 Generics-Collection"
+    },
+    {
+      "id": "collections-013",
+      "difficulty": 3,
+      "prompt": "What is the result of executing the following code fragment?",
+      "code": "List<Integer> list = new ArrayList<>(List.of(1, 2, 3, 4));\nfor (Integer i : list) {\n    if (i == 3) list.remove(i);\n}\nSystem.out.println(list);",
+      "options": [
+        "A ConcurrentModificationException is thrown.",
+        "[1, 2, 3]",
+        "[1, 2, 4]",
+        "[1, 2, 3, 4]",
+        "Compilation fails."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`i` è un `Integer`, quindi viene chiamato `remove(Object)` che rimuove l'elemento 3 (non l'indice 3, che darebbe `[1, 2, 3]`). Normalmente modificare la lista in un for-each provoca `ConcurrentModificationException`, ma qui 3 è il penultimo elemento: dopo la rimozione la size diventa 3, il cursore dell'iteratore vale già 3, `hasNext()` restituisce false e il ciclo termina senza chiamare `next()`. Viene stampato `[1, 2, 4]` (è la trappola citata nel manuale).",
+      "source": "JSE17 DEV - 14 Generics-Collection"
+    },
+    {
+      "id": "collections-014",
+      "difficulty": 2,
+      "prompt": "What is the result of executing the following code fragment?",
+      "code": "Queue<String> q = new LinkedList<>();\nq.offer(\"a\");\nSystem.out.print(q.poll());\nSystem.out.print(q.peek());\nSystem.out.print(q.poll());\nSystem.out.print(q.element());",
+      "options": [
+        "anullnullnull",
+        "anullnull and then a NoSuchElementException is thrown",
+        "a and then a NoSuchElementException is thrown",
+        "aanull and then a NoSuchElementException is thrown"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`poll` rimuove e restituisce `a`. Sulla coda ormai vuota `peek` e `poll` restituiscono `null` senza eccezioni. `element()` invece, come `remove()`, lancia `NoSuchElementException` se la coda è vuota. Output: `anullnull` seguito dall'eccezione.",
+      "source": "JSE17 DEV - 14 Generics-Collection"
+    },
+    {
+      "id": "collections-015",
+      "difficulty": 3,
+      "prompt": "What is the output of the following code fragment?",
+      "code": "PriorityQueue<Integer> pq = new PriorityQueue<>(Comparator.reverseOrder());\npq.addAll(List.of(4, 1, 7, 4));\nSystem.out.print(pq.poll() + \" \" + pq.poll() + \" \" + pq.size());",
+      "options": [
+        "1 4 2",
+        "7 4 1",
+        "7 1 2",
+        "7 4 2"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Il `Comparator.reverseOrder()` fa sì che `poll` estragga sempre il valore più grande: prima 7, poi 4. `PriorityQueue` accetta duplicati, quindi dopo due estrazioni restano 4 e 1: size 2. `7 4 1` presupporrebbe (erroneamente) che i duplicati vengano scartati; `1 4 2` ignorerebbe il comparatore.",
+      "source": "JSE17 DEV - 14 Generics-Collection"
+    },
+    {
+      "id": "collections-016",
+      "difficulty": 2,
+      "prompt": "Which statements about equals(), hashCode() and hash-based collections are true? (Choose two.)",
+      "code": null,
+      "options": [
+        "Overriding equals() without overriding hashCode() causes a compilation error.",
+        "If a.equals(b) is true, a.hashCode() == b.hashCode() must also be true.",
+        "If a.hashCode() == b.hashCode(), a.equals(b) must also be true.",
+        "TreeSet uses equals() to decide whether an element is a duplicate.",
+        "HashSet first uses hashCode() to find the bucket and then calls equals() on the elements in that bucket."
+      ],
+      "correct": [
+        1,
+        4
+      ],
+      "explanation": "Il contratto impone che oggetti uguali per `equals` abbiano lo stesso hashCode, mentre hashCode uguali non implicano `equals` true (collisioni). `HashSet`/`HashMap` usano prima `hashCode()` e poi `equals()` solo sugli elementi dello stesso bucket. Non sovrascrivere `hashCode()` è un errore logico, non di compilazione. `TreeSet` individua i duplicati con `compareTo`/`compare` (risultato 0), non con `equals`.",
+      "source": "JSE17 DEV - 14 Generics-Collection"
+    },
+    {
+      "id": "collections-017",
+      "difficulty": 3,
+      "prompt": "Given the following class, what is the result?",
+      "code": "import java.util.*;\n\npublic class Test {\n    static void fill(List<? super Integer> list) { list.add(42); }\n    static double total(List<? extends Number> list) {\n        double t = 0;\n        for (Number n : list) t += n.doubleValue();\n        return t;\n    }\n    public static void main(String[] args) {\n        List<Number> nums = new ArrayList<>();\n        fill(nums);                        // line 1\n        List<Object> objs = new ArrayList<>();\n        fill(objs);                        // line 2\n        System.out.println(total(nums));   // line 3\n        List<Integer> ints = List.of(1, 2);\n        System.out.println(total(ints));   // line 4\n        fill(ints);                        // line 5\n    }\n}",
+      "options": [
+        "Compilation fails at line 2.",
+        "Compilation fails at line 5.",
+        "42.0 and 3.0 are printed, then an UnsupportedOperationException is thrown.",
+        "42.0 and 3.0 are printed and the program ends normally.",
+        "Compilation fails at line 4."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`List<? super Integer>` accetta liste di `Integer` o di un suo supertipo: `List<Number>`, `List<Object>` e `List<Integer>` sono tutte valide, quindi le righe 1, 2 e 5 compilano. `List<? extends Number>` accetta `List<Number>` e `List<Integer>`, quindi anche le righe 3 e 4 compilano. Vengono stampati 42.0 e 3.0, ma alla riga 5 `ints` è una lista immutabile creata con `List.of`: `add` lancia `UnsupportedOperationException` a runtime.",
+      "source": "JSE17 DEV - 14 Generics-Collection"
+    },
+    {
+      "id": "collections-018",
+      "difficulty": 1,
+      "prompt": "Which statements about the Map interface and its implementations are true? (Choose two.)",
+      "code": null,
+      "options": [
+        "Map extends Collection.",
+        "HashMap allows a null key.",
+        "keySet() returns a List of the keys.",
+        "A TreeMap using natural ordering throws a NullPointerException when a null key is put.",
+        "values() returns a Set."
+      ],
+      "correct": [
+        1,
+        3
+      ],
+      "explanation": "`HashMap` accetta una (sola) chiave `null`; `TreeMap` con ordinamento naturale deve confrontare le chiavi e con `null` lancia `NullPointerException`. `Map` NON estende `Collection`. Le viste sono `keySet()` che restituisce un `Set` e `values()` che restituisce una `Collection` (i valori possono essere duplicati, quindi non è un `Set`).",
+      "source": "JSE17 DEV - 14 Generics-Collection"
+    }
+  ]
+}

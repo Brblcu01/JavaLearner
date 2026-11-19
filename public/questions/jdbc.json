@@ -1,0 +1,306 @@
+{
+  "topic": "jdbc",
+  "keyPoints": [
+    {
+      "title": "DriverManager e connessione",
+      "body": "Le API JDBC sono interfacce del package `java.sql` implementate dai driver. La connessione si ottiene con `DriverManager.getConnection(url)` o `getConnection(url, user, password)`. Da JDBC 4.0 i driver presenti nel classpath vengono caricati automaticamente, quindi `Class.forName()` non è più necessario (ma resta legale). Se nessun driver accetta l'URL viene lanciata `SQLException: No suitable driver found`: il metodo non restituisce mai `null`."
+    },
+    {
+      "title": "I tre tipi di Statement",
+      "body": "`Connection.createStatement()` restituisce uno `Statement`, `prepareStatement(String sql)` un `PreparedStatement` con placeholder `?`, `prepareCall(String sql)` un `CallableStatement` per le stored procedure (es. `\"{call proc(?, ?)}\"`). `prepareStatement()` senza argomenti non esiste. Di default `createStatement()` produce ResultSet `TYPE_FORWARD_ONLY` e `CONCUR_READ_ONLY`."
+    },
+    {
+      "title": "executeQuery, executeUpdate, execute",
+      "body": "`executeQuery` serve per le SELECT e restituisce un `ResultSet`; `executeUpdate` per INSERT/UPDATE/DELETE/DDL e restituisce il numero di righe coinvolte (`int`); `execute` va bene per tutto e restituisce `true` se il risultato è un ResultSet, `false` se è un conteggio (da leggere con `getUpdateCount()`). Usare il metodo sbagliato per il tipo di SQL compila ma lancia `SQLException` a runtime; anche `executeQuery(String)` invocato su un `PreparedStatement` lancia `SQLException`."
+    },
+    {
+      "title": "Gli indici partono da 1",
+      "body": "Sia i parametri `?` di `PreparedStatement`/`CallableStatement` (`setInt(1, ...)`) sia le colonne del `ResultSet` (`getString(1)`) si contano da 1: l'indice 0 o un indice fuori range compila ma lancia `SQLException`. I placeholder sostituiscono solo VALORI, non nomi di tabelle o colonne. I valori impostati restano validi tra un'esecuzione e l'altra finché non vengono sovrascritti o cancellati con `clearParameters()`."
+    },
+    {
+      "title": "Navigare un ResultSet",
+      "body": "All'inizio il cursore è PRIMA della prima riga: bisogna chiamare `next()` (che restituisce `false` a fine dati) prima di leggere, altrimenti si ottiene `SQLException`. Con un ResultSet scrollable: `absolute(n)` con n positivo conta dall'inizio, con n negativo dalla fine (`absolute(-1)` = ultima riga), `absolute(0)` porta il cursore prima della prima riga e restituisce `false`. Esistono anche `previous()`, `first()`, `last()`, `relative(n)`, `beforeFirst()`, `afterLast()`."
+    },
+    {
+      "title": "ResultSet aggiornabili",
+      "body": "Per modificare dati tramite il ResultSet serve uno Statement creato con `ResultSet.TYPE_SCROLL_SENSITIVE` (o INSENSITIVE) e `ResultSet.CONCUR_UPDATABLE`. `updateXXX()` modifica solo il ResultSet: senza `updateRow()` le modifiche vanno perse. Per inserire si usa `moveToInsertRow()`, gli `updateXXX()` e infine `insertRow()`; `deleteRow()` cancella la riga corrente."
+    },
+    {
+      "title": "Transazioni e savepoint",
+      "body": "Per default una `Connection` è in auto-commit (`true`): ogni istruzione viene confermata subito. Con `setAutoCommit(false)` si gestisce la transazione con `commit()` e `rollback()`. `setSavepoint()` / `setSavepoint(String)` restituiscono un `Savepoint`; `rollback(Savepoint)` annulla solo le operazioni successive al savepoint, che poi richiedono comunque `commit()`. Non esiste `commit(Savepoint)`."
+    },
+    {
+      "title": "Chiusura delle risorse e CallableStatement",
+      "body": "`Connection`, `Statement` e `ResultSet` sono `AutoCloseable` e si usano in try-with-resources, che li chiude in ordine inverso. Chiudere uno `Statement` chiude il suo `ResultSet`: usarlo dopo la chiusura lancia `SQLException`. `SQLException` è checked (estende `Exception`): `getErrorCode()` restituisce il codice del fornitore (int), `getSQLState()` una String. Per leggere un parametro OUT di un `CallableStatement` si chiama `registerOutParameter(indice, tipo)` prima dell'esecuzione."
+    }
+  ],
+  "questions": [
+    {
+      "id": "jdbc-001",
+      "difficulty": 1,
+      "prompt": "Assume conn is a valid Connection and table emp contains rows. What is the result of executing the following code fragment?",
+      "code": "Statement stmt = conn.createStatement();\nResultSet rs = stmt.executeQuery(\"SELECT name FROM emp\");\nif (rs.next()) {\n    System.out.println(rs.getString(0));\n}",
+      "options": [
+        "The name of the first employee is printed.",
+        "An SQLException is thrown at runtime.",
+        "An ArrayIndexOutOfBoundsException is thrown at runtime.",
+        "Compilation fails.",
+        "null is printed."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "In JDBC le colonne di un `ResultSet` sono numerate a partire da 1. `getString(0)` compila (il parametro è un semplice `int`), ma a runtime il driver segnala un indice di colonna non valido lanciando `SQLException`, non un'eccezione sugli array. Per leggere la prima colonna serve `getString(1)` oppure `getString(\"name\")`.",
+      "source": "JSE17 DEV - 13 JDBC"
+    },
+    {
+      "id": "jdbc-002",
+      "difficulty": 1,
+      "prompt": "Which Statement method should be used to run a SELECT query and obtain its rows?",
+      "code": null,
+      "options": [
+        "executeUpdate(String sql)",
+        "executeSelect(String sql)",
+        "executeQuery(String sql)",
+        "getResultSet(String sql)"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`executeQuery` esegue una SELECT e restituisce direttamente un `ResultSet`. `executeUpdate` è destinato a INSERT, UPDATE, DELETE e DDL e restituisce un `int`; `executeSelect` non esiste; `getResultSet()` esiste ma non ha parametri e restituisce il risultato corrente dopo una chiamata a `execute()`.",
+      "source": "JSE17 DEV - 13 JDBC"
+    },
+    {
+      "id": "jdbc-003",
+      "difficulty": 2,
+      "prompt": "Assume conn is a valid Connection and table emp contains exactly 3 rows. What is the output?",
+      "code": "try (Statement s = conn.createStatement()) {\n    boolean b = s.execute(\"UPDATE emp SET sal = sal * 2\");\n    int n = s.getUpdateCount();\n    System.out.println(b + \" \" + n);\n}",
+      "options": [
+        "false 3",
+        "true 3",
+        "false -1",
+        "true -1",
+        "An SQLException is thrown because execute() cannot run an UPDATE."
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "`execute()` accetta qualsiasi istruzione SQL e restituisce `true` solo se il primo risultato è un `ResultSet`. Per un UPDATE restituisce `false` e il numero di righe modificate si legge con `getUpdateCount()`, che qui vale 3. `getUpdateCount()` restituisce -1 solo quando il risultato è un ResultSet o non ci sono altri risultati.",
+      "source": "JSE17 DEV - 13 JDBC"
+    },
+    {
+      "id": "jdbc-004",
+      "difficulty": 2,
+      "prompt": "Which statements about PreparedStatement are true? (Choose two.)",
+      "code": null,
+      "options": [
+        "A ? placeholder can be used in place of a table name.",
+        "Parameter indexes start at 1.",
+        "A PreparedStatement can only execute SELECT statements.",
+        "A parameter value remains set for later executions until it is overwritten or clearParameters() is called.",
+        "setInt(0, 10) sets the first parameter."
+      ],
+      "correct": [
+        1,
+        3
+      ],
+      "explanation": "I parametri si numerano da 1 (con l'indice 0 si ottiene `SQLException`) e i valori impostati restano validi per le esecuzioni successive dello stesso statement finché non vengono sostituiti o azzerati con `clearParameters()`. I placeholder rappresentano solo valori, non identificatori come i nomi delle tabelle (il manuale lo segnala come errore). Un `PreparedStatement` può eseguire qualunque istruzione SQL tramite `executeQuery`, `executeUpdate` o `execute`.",
+      "source": "JSE17 DEV - 13 JDBC"
+    },
+    {
+      "id": "jdbc-005",
+      "difficulty": 3,
+      "prompt": "Assume conn is a valid Connection, table t has a single VARCHAR column v and is initially empty, and the database supports savepoints. Which values are stored in table t after the code runs?",
+      "code": "conn.setAutoCommit(false);\nStatement s = conn.createStatement();\ns.executeUpdate(\"INSERT INTO t VALUES ('A')\");\nSavepoint sp = conn.setSavepoint();\ns.executeUpdate(\"INSERT INTO t VALUES ('B')\");\nconn.rollback(sp);\ns.executeUpdate(\"INSERT INTO t VALUES ('C')\");\nconn.commit();",
+      "options": [
+        "A, B and C",
+        "Only C",
+        "No rows",
+        "A and C",
+        "A and B"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Con auto-commit disattivato le tre INSERT fanno parte della stessa transazione. `rollback(sp)` annulla solo quanto eseguito dopo il savepoint, cioè l'inserimento di `B`, e la transazione resta aperta. L'inserimento di `C` avviene dopo il rollback parziale e `commit()` rende definitivi `A` e `C`.",
+      "source": "JSE17 DEV - 13 JDBC"
+    },
+    {
+      "id": "jdbc-006",
+      "difficulty": 3,
+      "prompt": "Assume conn is a valid Connection in auto-commit mode and table t has a single VARCHAR column v and is initially empty. What is the output?",
+      "code": "PreparedStatement ps = conn.prepareStatement(\"INSERT INTO t VALUES (?)\");\nps.setString(1, \"X\");\nps.executeUpdate();\nps.executeUpdate();\nps.setString(1, \"Y\");\nps.executeUpdate();\nResultSet rs = conn.createStatement().executeQuery(\"SELECT v FROM t ORDER BY v\");\nwhile (rs.next()) System.out.print(rs.getString(1));",
+      "options": [
+        "XY",
+        "XXYY",
+        "XXY",
+        "An SQLException is thrown at the second call to executeUpdate()."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Un parametro impostato su un `PreparedStatement` resta valido anche dopo l'esecuzione: la seconda `executeUpdate()` reinserisce `X` senza errori. Poi il parametro viene sostituito con `Y` e inserito una volta. La tabella contiene `X`, `X`, `Y` e la query ordinata stampa `XXY`.",
+      "source": "JSE17 DEV - 13 JDBC"
+    },
+    {
+      "id": "jdbc-007",
+      "difficulty": 1,
+      "prompt": "A JDBC 4.0 or later driver JAR is on the classpath. Which statement about obtaining a Connection is true?",
+      "code": null,
+      "options": [
+        "Class.forName() must be called with the driver class name before DriverManager.getConnection().",
+        "DriverManager.getConnection() returns null if no driver accepts the URL.",
+        "A Connection is created with new Connection(url, user, password).",
+        "DriverManager.getConnection() locates and loads the driver automatically."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Da JDBC 4.0 i driver presenti nel classpath vengono caricati automaticamente quando si invoca `DriverManager.getConnection()`; chiamare `Class.forName()` è ancora legale ma non necessario. Se nessun driver accetta l'URL viene lanciata `SQLException` (\"No suitable driver found\"), non restituito `null`. `Connection` è un'interfaccia e non si può istanziare con `new`.",
+      "source": "JSE17 DEV - 13 JDBC"
+    },
+    {
+      "id": "jdbc-008",
+      "difficulty": 1,
+      "prompt": "Assume conn is a valid Connection and table emp contains rows. What is the result of executing the following code fragment?",
+      "code": "Statement stmt = conn.createStatement();\nResultSet rs = stmt.executeQuery(\"SELECT id FROM emp\");\nSystem.out.println(rs.getInt(1));",
+      "options": [
+        "The id of the first row is printed.",
+        "An SQLException is thrown at runtime.",
+        "0 is printed.",
+        "Compilation fails because getInt() requires a column name."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Appena creato, il cursore di un `ResultSet` è posizionato PRIMA della prima riga. Senza aver chiamato `next()` non c'è una riga corrente, quindi `getInt(1)` lancia `SQLException`. `getInt` esiste sia nella versione con indice sia in quella con nome di colonna.",
+      "source": "JSE17 DEV - 13 JDBC"
+    },
+    {
+      "id": "jdbc-009",
+      "difficulty": 3,
+      "prompt": "Assume conn is a valid Connection and table color contains exactly the rows red, blue and green. What is the output?",
+      "code": "Statement s = conn.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,\n                                  ResultSet.CONCUR_READ_ONLY);\nResultSet rs = s.executeQuery(\"SELECT name FROM color ORDER BY name\");\nrs.absolute(-1);\nSystem.out.print(rs.getString(1) + \" \");\nrs.absolute(2);\nrs.previous();\nSystem.out.print(rs.getString(1) + \" \");\nSystem.out.print(rs.absolute(0));",
+      "options": [
+        "green red true",
+        "red green false",
+        "red blue true",
+        "green blue false",
+        "red blue false"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "Ordinate per nome le righe sono blue, green, red. `absolute(-1)` posiziona sull'ultima riga: `red`. `absolute(2)` va su `green` e `previous()` torna su `blue`. `absolute(0)` porta il cursore prima della prima riga, dove non c'è alcuna riga valida, e quindi restituisce `false` senza lanciare eccezioni.",
+      "source": "JSE17 DEV - 13 JDBC"
+    },
+    {
+      "id": "jdbc-010",
+      "difficulty": 2,
+      "prompt": "Given that conn is a Connection and sp is a Savepoint, which statements compile? (Choose three.)",
+      "code": null,
+      "options": [
+        "`CallableStatement cs = conn.prepareCall(\"{call proc(?)}\");`",
+        "`PreparedStatement ps = conn.prepareStatement();`",
+        "`conn.commit(sp);`",
+        "`Statement st = conn.createStatement();`",
+        "`ResultSet rs = conn.executeQuery(\"SELECT 1\");`",
+        "`conn.rollback(sp);`"
+      ],
+      "correct": [
+        0,
+        3,
+        5
+      ],
+      "explanation": "`prepareCall(String)` restituisce un `CallableStatement`, `createStatement()` uno `Statement` e `rollback(Savepoint)` esiste per i rollback parziali. `prepareStatement` richiede sempre la stringa SQL; non esiste un `commit` con parametro (si conferma sempre l'intera transazione); `Connection` non ha metodi `executeQuery`, che appartengono agli statement.",
+      "source": "JSE17 DEV - 13 JDBC"
+    },
+    {
+      "id": "jdbc-011",
+      "difficulty": 3,
+      "prompt": "Assume the database URL is valid and table emp exists and contains rows. What is the result?",
+      "code": "public static void main(String[] args) throws SQLException {\n    String url = \"jdbc:mydb://localhost/hr\";\n    ResultSet rs;\n    try (Connection c = DriverManager.getConnection(url);\n         PreparedStatement ps = c.prepareStatement(\"SELECT name FROM emp\")) {\n        rs = ps.executeQuery();\n    }\n    System.out.println(rs.next());\n}",
+      "options": [
+        "true",
+        "false",
+        "An SQLException is thrown at runtime.",
+        "Compilation fails because rs might not have been initialized."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Il codice compila: se il blocco try termina normalmente `rs` è stato assegnato. Alla fine del try-with-resources però vengono chiusi `ps` e `c`, e chiudere uno statement chiude automaticamente anche il `ResultSet` che ha prodotto. Chiamare `next()` su un ResultSet chiuso lancia `SQLException`.",
+      "source": "JSE17 DEV - 13 JDBC"
+    },
+    {
+      "id": "jdbc-012",
+      "difficulty": 2,
+      "prompt": "The stored procedure count_emp has an IN parameter (department name) and an OUT INTEGER parameter. Which statement, inserted at // INSERT CODE HERE, allows the code to print the value of the OUT parameter?",
+      "code": "try (CallableStatement cs = conn.prepareCall(\"{call count_emp(?, ?)}\")) {\n    cs.setString(1, \"IT\");\n    // INSERT CODE HERE\n    cs.execute();\n    System.out.println(cs.getInt(2));\n}",
+      "options": [
+        "`cs.registerOutParameter(2, Types.INTEGER);`",
+        "`cs.setOutParameter(2, Types.INTEGER);`",
+        "`cs.registerOutParameter(2);`",
+        "`cs.setInt(2, Types.INTEGER);`"
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "Un parametro OUT va registrato prima dell'esecuzione con `registerOutParameter(indice, tipoSQL)`, indicando il tipo con le costanti di `java.sql.Types` (o con `JDBCType`); dopo `execute()` lo si legge con `getInt(2)`. `setOutParameter` e `registerOutParameter(int)` non esistono. `setInt(2, Types.INTEGER)` compila ma imposta un valore IN (il numero della costante), senza registrare alcun parametro OUT.",
+      "source": "JSE17 DEV - 13 JDBC"
+    },
+    {
+      "id": "jdbc-013",
+      "difficulty": 2,
+      "prompt": "Which statements about SQLException are true? (Choose two.)",
+      "code": null,
+      "options": [
+        "SQLException extends RuntimeException, so it does not need to be handled or declared.",
+        "DriverManager.getConnection() returns null instead of throwing SQLException when the database is unreachable.",
+        "SQLException is a checked exception.",
+        "getSQLState() returns a vendor-specific int code.",
+        "getErrorCode() returns a vendor-specific int code."
+      ],
+      "correct": [
+        2,
+        4
+      ],
+      "explanation": "`SQLException` estende `Exception`, quindi è checked: va gestita o dichiarata, e quasi tutti i metodi JDBC la dichiarano. `getErrorCode()` restituisce il codice di errore specifico del fornitore come `int`, mentre `getSQLState()` restituisce una `String` (codice SQLState standard). In caso di errore di connessione `getConnection()` lancia l'eccezione, non restituisce `null`.",
+      "source": "JSE17 DEV - 13 JDBC"
+    },
+    {
+      "id": "jdbc-014",
+      "difficulty": 2,
+      "prompt": "A Statement is created with conn.createStatement() without arguments. Which type and concurrency do the ResultSet objects it produces have by default?",
+      "code": null,
+      "options": [
+        "TYPE_SCROLL_INSENSITIVE and CONCUR_READ_ONLY",
+        "TYPE_SCROLL_SENSITIVE and CONCUR_UPDATABLE",
+        "TYPE_FORWARD_ONLY and CONCUR_UPDATABLE",
+        "TYPE_FORWARD_ONLY and CONCUR_READ_ONLY"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Per default un ResultSet si scorre solo in avanti con `next()` (`TYPE_FORWARD_ONLY`) ed è di sola lettura (`CONCUR_READ_ONLY`). Per usare metodi come `absolute()`, `previous()` o `updateRow()` bisogna creare lo statement con `createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE)` o una combinazione simile.",
+      "source": "JSE17 DEV - 13 JDBC"
+    },
+    {
+      "id": "jdbc-015",
+      "difficulty": 3,
+      "prompt": "Assume conn is a valid Connection and table emp exists. What is the result of executing the following code fragment?",
+      "code": "PreparedStatement ps = conn.prepareStatement(\"SELECT name FROM emp WHERE id = ?\");\nps.setInt(1, 1);\nResultSet rs = ps.executeQuery(\"SELECT name FROM emp\");\nwhile (rs.next()) {\n    System.out.println(rs.getString(\"name\"));\n}",
+      "options": [
+        "Only the name of the employee with id 1 is printed.",
+        "An SQLException is thrown at runtime.",
+        "The names of all employees are printed.",
+        "Compilation fails because PreparedStatement has no executeQuery(String) method."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`PreparedStatement` estende `Statement`, quindi eredita `executeQuery(String)` e il codice compila. La specifica JDBC però stabilisce che i metodi che ricevono la stringa SQL non possono essere invocati su un `PreparedStatement` o un `CallableStatement`: la chiamata lancia `SQLException`. Su un `PreparedStatement` si usa `executeQuery()` senza argomenti.",
+      "source": "JSE17 DEV - 13 JDBC"
+    }
+  ]
+}

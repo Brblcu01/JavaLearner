@@ -1,0 +1,310 @@
+{
+  "topic": "loops",
+  "keyPoints": [
+    {
+      "title": "Le tre parti del for",
+      "body": "Inizializzazione, condizione e iterazione sono tutte facoltative, ma i due `;` sono obbligatori: `for( ; ; )` è un ciclo infinito valido. Si possono dichiarare più variabili solo dello stesso tipo separate da virgola (`int x = 0, y = 2`), non `int x = 0, int y = 2` né `var i = 0, j = 1`. L'espressione di iterazione può contenere più istruzioni separate da virgola, anche non legate alle variabili del ciclo."
+    },
+    {
+      "title": "Enhanced for (foreach)",
+      "body": "Funziona su array e su qualunque `Iterable`. La variabile va dichiarata dentro le parentesi: `String n; for (n : names)` non compila. Il tipo deve essere compatibile con l'elemento, con widening, boxing e unboxing ammessi (`double d : long[]`, `Long l : long[]`); per un array bidimensionale ogni elemento è a sua volta un array (`int[] row : matrix`). Assegnare la variabile del ciclo non modifica l'array o la collezione."
+    },
+    {
+      "title": "Modificare una collection durante il foreach",
+      "body": "Aggiungere o rimuovere elementi da una lista mentre la si scorre con il foreach compila ma di solito lancia `ConcurrentModificationException`. Eccezione classica: rimuovendo il penultimo elemento il ciclo termina perché `hasNext()` restituisce false, quindi nessuna eccezione. Sostituire un elemento con `set` è lecito; per rimuovere in sicurezza si usa `Iterator.remove()`."
+    },
+    {
+      "title": "Null e varargs nel foreach",
+      "body": "Se l'array o la collezione su cui si itera è `null` il foreach lancia `NullPointerException`; un elemento `null` invece non dà problemi finché non lo si dereferenzia. Un parametro varargs è un array: chiamato senza argomenti vale un array vuoto, chiamato con `null` vale `null`."
+    },
+    {
+      "title": "while e do-while",
+      "body": "Il `while` esegue il corpo da 0 a n volte, il `do-while` almeno una volta perché la condizione si valuta dopo il corpo (e termina con `;`). Attenzione ai post-incrementi nella condizione: in `while (n++ < 3)` la variabile viene incrementata anche nell'ultimo controllo, quello che fallisce."
+    },
+    {
+      "title": "Codice irraggiungibile",
+      "body": "`while (false) { ... }` non compila (unreachable statement), mentre `if (false) { ... }` compila per ragioni storiche. Anche un'istruzione dopo un ciclo infinito senza `break` (`while (true)`, `for(;;)`) o subito dopo `break`, `continue`, `return` o `throw` nello stesso blocco è un errore di compilazione."
+    },
+    {
+      "title": "break e continue",
+      "body": "`break` senza etichetta esce solo dal ciclo o dallo switch più interno, `continue` passa all'iterazione successiva del ciclo più interno. Con un'etichetta (`continue outer;`, `break outer;`) agiscono sul ciclo etichettato. `break` senza etichetta è ammesso solo in un ciclo o in uno switch; `continue` solo in un ciclo."
+    },
+    {
+      "title": "Regole delle label",
+      "body": "Un'etichetta segue le regole degli identificatori ed è seguita da `:`. Una label non usata compila senza effetti. `break label;` funziona anche su un blocco o un `if` etichettato, ma `continue label;` richiede che la label sia su un ciclo. Saltare a una label che non racchiude l'istruzione corrente non compila (non esiste il goto); la stessa label si può riusare quando il suo scope è terminato."
+    }
+  ],
+  "questions": [
+    {
+      "id": "loops-001",
+      "difficulty": 1,
+      "prompt": "What is the output of the following code?",
+      "code": "public class DoW {\n    public static void main(String[] args) {\n        int i = 10;\n        do {\n            System.out.print(i + \" \");\n            i++;\n        } while (i < 5);\n        while (i < 5) {\n            System.out.print(\"W\");\n        }\n        System.out.print(\"end\");\n    }\n}",
+      "options": [
+        "end",
+        "10 11 12 13 14 end",
+        "The code runs forever.",
+        "10 end"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Il `do-while` esegue sempre il corpo almeno una volta e controlla la condizione solo alla fine: stampa \"10 \", porta `i` a 11 e poi esce perché 11 < 5 è false. Il `while` controlla la condizione prima di entrare: è falsa, quindi il corpo non viene mai eseguito e non c'è ciclo infinito. Infine viene stampato \"end\".",
+      "source": "JSE17 DEV - 5 Loop Constructs"
+    },
+    {
+      "id": "loops-002",
+      "difficulty": 1,
+      "prompt": "Which for loop headers compile when followed by the body `{ break; }`? (Choose two.)",
+      "code": null,
+      "options": [
+        "`for (int x = 0, y = 2; x < y; x++)`",
+        "`for (int x = 0, int y = 2; ; )`",
+        "`for (int i = 0; i < 3)`",
+        "`for ( ; ; )`",
+        "`for (int i = 0, long j = 0; ; )`",
+        "`for (var i = 0, j = 1; ; )`"
+      ],
+      "correct": [
+        0,
+        3
+      ],
+      "explanation": "Nell'inizializzazione si possono dichiarare più variabili dello stesso tipo separandole con virgole, scrivendo il tipo una sola volta: `int x = 0, y = 2` è valido. Le tre sezioni sono facoltative, ma i due `;` sono obbligatori: `for ( ; ; )` compila mentre `for (int i = 0; i < 3)` no. Ripetere il tipo (`int x = 0, int y = 2`) o mescolare tipi diversi non è ammesso, e `var` non si può usare in una dichiarazione composta.",
+      "source": "JSE17 DEV - 5 Loop Constructs"
+    },
+    {
+      "id": "loops-003",
+      "difficulty": 2,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Iter {\n    public static void main(String[] args) {\n        int b = 4;\n        for (int a = 1; b > 1; System.out.print(\"i \")) {\n            System.out.print(b + \" \");\n            b -= a;\n        }\n    }\n}",
+      "options": [
+        "4 3 2 i i i",
+        "4 i 3 i 2 i",
+        "4 i 3 i 2 i 1 i",
+        "i 4 i 3 i 2",
+        "4 3 2"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Le tre parti del `for` non devono riguardare la stessa variabile: la condizione usa `b` e l'espressione di iterazione è una stampa. Ad ogni giro: si controlla `b > 1`, si esegue il corpo (stampa `b`, poi `b` diminuisce di 1) e poi l'espressione di iterazione stampa \"i \". Con `b` uguale a 4, 3 e 2 si ottiene \"4 i 3 i 2 i \"; quando `b` vale 1 la condizione è falsa e il ciclo termina senza eseguire né il corpo né l'iterazione.",
+      "source": "JSE17 DEV - 5 Loop Constructs"
+    },
+    {
+      "id": "loops-004",
+      "difficulty": 2,
+      "prompt": "Given the following declarations, which loops compile? (Choose three.)",
+      "code": "long[] prim = {1L, 2L};\nLong[] wrap = {3L, 4L};\nint[][] matrix = {{1, 2}, {3, 4}};",
+      "options": [
+        "`for (double d : prim) { }`",
+        "`for (int n : prim) { }`",
+        "`for (Long l : prim) { }`",
+        "`for (int n : matrix) { }`",
+        "`for (int[] row : matrix) { }`",
+        "`for (Integer i : wrap) { }`"
+      ],
+      "correct": [
+        0,
+        2,
+        4
+      ],
+      "explanation": "La variabile del foreach deve poter ricevere ogni elemento con le normali regole di assegnazione. Un `long` si allarga a `double` e si può boxare in `Long`. Gli elementi di `matrix` sono array `int[]`, quindi `int[] row` è corretto mentre `int n` no. `long` verso `int` è un restringimento che richiede un cast, e un `Long` non può diventare `Integer` perché i wrapper non sono in relazione tra loro.",
+      "source": "JSE17 DEV - 5 Loop Constructs"
+    },
+    {
+      "id": "loops-005",
+      "difficulty": 1,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "public class Names {\n    public static void main(String[] args) {\n        String[] names = {\"Ann\", \"Bob\"};\n        String n;\n        for (n : names) {\n            System.out.print(n);\n        }\n    }\n}",
+      "options": [
+        "AnnBob",
+        "Ann Bob",
+        "Compilation fails.",
+        "A NullPointerException is thrown."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Nel foreach la variabile deve essere dichiarata all'interno delle parentesi, insieme al suo tipo: `for (String n : names)`. Usare una variabile già dichiarata fuori dal ciclo non è ammesso e il compilatore segnala un errore (`bad initializer for for-loop`). Il codice quindi non compila.",
+      "source": "JSE17 DEV - 5 Loop Constructs"
+    },
+    {
+      "id": "loops-006",
+      "difficulty": 3,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Cont {\n    public static void main(String[] args) {\n        int count = 0;\n        outer:\n        for (int i = 0; i < 3; i++) {\n            for (int j = 0; j < 3; j++) {\n                if (j == i) continue outer;\n                count++;\n                System.out.print(i + \"\" + j + \" \");\n            }\n        }\n        System.out.println(count);\n    }\n}",
+      "options": [
+        "01 02 12 3",
+        "00 11 22 3",
+        "10 20 3",
+        "10 12 20 21 4",
+        "10 20 21 3"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "`continue outer` abbandona il ciclo interno e passa all'iterazione successiva del ciclo esterno. Con `i = 0` già `j = 0` fa scattare il continue: nessuna stampa. Con `i = 1` si stampa \"10\" e poi `j = 1` salta. Con `i = 2` si stampano \"20\" e \"21\", poi `j = 2` salta. `count` vale 3. La concatenazione `i + \"\" + j` stampa le cifre affiancate invece di sommarle.",
+      "source": "JSE17 DEV - 5 Loop Constructs"
+    },
+    {
+      "id": "loops-007",
+      "difficulty": 3,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Brk {\n    public static void main(String[] args) {\n        int x = 0;\n        loop:\n        while (true) {\n            x++;\n            switch (x % 3) {\n                case 0: break loop;\n                case 1: x += 3; break;\n                default: continue loop;\n            }\n            System.out.print(x + \" \");\n        }\n        System.out.println(\"x=\" + x);\n    }\n}",
+      "options": [
+        "x=6",
+        "4 x=6",
+        "4 7 x=9",
+        "4 x=5",
+        "The loop never ends."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Primo giro: `x` diventa 1, `1 % 3` è 1, `x += 3` porta `x` a 4 e il `break` senza etichetta esce solo dallo switch, quindi viene stampato \"4 \". Secondo giro: `x` diventa 5, `5 % 3` è 2, `default` esegue `continue loop` e salta la stampa. Terzo giro: `x` diventa 6, `6 % 3` è 0 e `break loop` esce dal `while`. Stampa \"4 x=6\".",
+      "source": "JSE17 DEV - 5 Loop Constructs"
+    },
+    {
+      "id": "loops-008",
+      "difficulty": 1,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Nested {\n    public static void main(String[] args) {\n        for (int i = 0; i < 3; i++) {\n            for (int j = 0; j < 3; j++) {\n                if (j == 1) break;\n                System.out.print(i + \"\" + j + \" \");\n            }\n        }\n    }\n}",
+      "options": [
+        "00",
+        "00 01 02",
+        "00 10 20",
+        "01 11 21"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Il `break` senza etichetta interrompe solo il ciclo più interno in cui si trova (anche se è dentro un `if`). Per ogni valore di `i` viene stampato solo il caso `j = 0`; quando `j` vale 1 il ciclo interno termina e il ciclo esterno prosegue con il valore successivo di `i`. Risultato: \"00 10 20\".",
+      "source": "JSE17 DEV - 5 Loop Constructs"
+    },
+    {
+      "id": "loops-009",
+      "difficulty": 2,
+      "prompt": "Which code fragment compiles when placed in a method body after `int x = 0;`?",
+      "code": null,
+      "options": [
+        "`while (false) { x++; }`",
+        "`for (;;) { } System.out.print(x);`",
+        "`do { break; x++; } while (true);`",
+        "`if (false) { x++; }`",
+        "`while (true) { x++; } System.out.print(x);`"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Il compilatore rifiuta il codice irraggiungibile. Il corpo di `while (false)` non può mai essere eseguito, l'istruzione dopo un ciclo infinito senza `break` non è raggiungibile e `x++` subito dopo `break` neppure: tutti producono `unreachable statement`. `if (false)` è un'eccezione voluta dal linguaggio (permette di disattivare codice): compila, al massimo con un avviso di dead code.",
+      "source": "JSE17 DEV - 5 Loop Constructs"
+    },
+    {
+      "id": "loops-010",
+      "difficulty": 3,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.*;\n\npublic class Remove {\n    public static void main(String[] args) {\n        List<String> list = new ArrayList<>(List.of(\"A\", \"B\", \"C\", \"D\"));\n        for (String s : list) {\n            if (s.equals(\"C\")) list.remove(s);\n        }\n        System.out.println(list);\n    }\n}",
+      "options": [
+        "A ConcurrentModificationException is thrown.",
+        "[A, B, C, D]",
+        "[A, B, D]",
+        "Compilation fails."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Di solito modificare una lista durante il foreach provoca `ConcurrentModificationException`, ma qui \"C\" è il penultimo elemento. Dopo la rimozione la lista ha 3 elementi e l'iteratore ha già restituito 3 elementi: `hasNext()` restituisce false e il ciclo termina prima che `next()` possa rilevare la modifica. Nessuna eccezione: stampa \"[A, B, D]\". Rimuovendo \"A\" o \"B\" si otterrebbe invece l'eccezione.",
+      "source": "JSE17 DEV - 5 Loop Constructs"
+    },
+    {
+      "id": "loops-011",
+      "difficulty": 2,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "public class Total {\n    static int total(int... nums) {\n        int sum = 0;\n        for (int n : nums) sum += n;\n        return sum;\n    }\n    public static void main(String[] args) {\n        System.out.print(total(1, 2) + \" \");\n        System.out.print(total() + \" \");\n        System.out.print(total(null));\n    }\n}",
+      "options": [
+        "It prints 3 0 0",
+        "It prints 3 0 and then throws a NullPointerException",
+        "Compilation fails.",
+        "It prints 3 and then throws a NullPointerException"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Un parametro varargs è un array. `total(1, 2)` riceve `{1, 2}` e restituisce 3. `total()` riceve un array vuoto (non `null`): il foreach non esegue iterazioni e restituisce 0. `total(null)` compila perché `null` è assegnabile a `int[]`, ma il foreach su un array `null` lancia `NullPointerException`.",
+      "source": "JSE17 DEV - 5 Loop Constructs"
+    },
+    {
+      "id": "loops-012",
+      "difficulty": 3,
+      "prompt": "Which fragments compile when placed in a method body after `int x = 8;`, with no enclosing loop or switch? (Choose three.)",
+      "code": null,
+      "options": [
+        "`block: if (x > 6) { break block; }`",
+        "`block: if (x > 6) { break; }`",
+        "`outer: for (int i = 0; i < 2; i++) { inner: for (int j = 0; j < 2; j++) { continue outer; } }`",
+        "`block: if (x > 6) { continue block; }`",
+        "`lbl: System.out.println(\"a\"); if (x > 6) break lbl;`",
+        "`loop: while (x < 10) { x++; } loop: while (x < 20) { x++; }`"
+      ],
+      "correct": [
+        0,
+        2,
+        5
+      ],
+      "explanation": "`break` con etichetta si può usare anche su un `if` o un blocco etichettato. La label `inner` non viene usata, ma questo compila senza effetti, e `continue outer` è corretto perché `outer` etichetta un ciclo. La stessa label si può riusare quando lo scope della precedente è terminato. Un `break` senza etichetta fuori da cicli e switch non compila, `continue` richiede una label su un ciclo (`not a loop label`) e `break lbl` fuori dall'istruzione etichettata non trova la label (non esiste il goto).",
+      "source": "JSE17 DEV - 5 Loop Constructs"
+    },
+    {
+      "id": "loops-013",
+      "difficulty": 2,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Wh {\n    public static void main(String[] args) {\n        int n = 0;\n        while (n++ < 3) System.out.print(n);\n        System.out.print(\" \" + n);\n    }\n}",
+      "options": [
+        "123 3",
+        "012 3",
+        "123 4",
+        "0123 4",
+        "12 3"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Il post-incremento confronta il valore vecchio e poi incrementa. I controlli 0 < 3, 1 < 3 e 2 < 3 sono veri e portano `n` a 1, 2 e 3 prima di ogni stampa: \"123\". Il quarto controllo, 3 < 3, è falso ma incrementa comunque `n`, che alla fine vale 4.",
+      "source": "JSE17 DEV - 5 Loop Constructs"
+    },
+    {
+      "id": "loops-014",
+      "difficulty": 3,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Sum {\n    public static void main(String[] args) {\n        int sum = 0;\n        for (int i = 0, j = 10; i < j; i += 2, j--) {\n            if (i % 3 == 0) continue;\n            sum += i + j;\n        }\n        System.out.println(sum);\n    }\n}",
+      "options": [
+        "11",
+        "46",
+        "34",
+        "23"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Le coppie (i, j) valutate sono (0, 10), (2, 9), (4, 8), (6, 7); con (8, 6) la condizione `i < j` è falsa. Il `continue` salta la somma quando `i` è multiplo di 3, cioè per i = 0 e i = 6, ma l'espressione di iterazione `i += 2, j--` viene comunque eseguita. Restano 2 + 9 = 11 e 4 + 8 = 12: totale 23. Senza il `continue` il totale sarebbe 46.",
+      "source": "JSE17 DEV - 5 Loop Constructs"
+    },
+    {
+      "id": "loops-015",
+      "difficulty": 2,
+      "prompt": "What is the output of the following code?",
+      "code": "import java.util.*;\n\npublic class Itr {\n    public static void main(String[] args) {\n        List<Integer> nums = new ArrayList<>(List.of(1, 2, 3, 4, 5, 6));\n        Iterator<Integer> it = nums.iterator();\n        while (it.hasNext()) {\n            if (it.next() % 2 == 0) it.remove();\n        }\n        for (int n : nums) n *= 10;\n        System.out.println(nums);\n    }\n}",
+      "options": [
+        "[10, 30, 50]",
+        "[1, 3, 5]",
+        "[2, 4, 6]",
+        "A ConcurrentModificationException is thrown."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Rimuovere tramite `Iterator.remove()` è il modo corretto per eliminare elementi durante l'iterazione: non viene lanciata nessuna eccezione e restano i numeri dispari. Nel foreach `n` è una copia locale dell'elemento (unboxato in `int`): `n *= 10` modifica solo quella copia, non la lista. Stampa \"[1, 3, 5]\".",
+      "source": "JSE17 DEV - 5 Loop Constructs"
+    }
+  ]
+}

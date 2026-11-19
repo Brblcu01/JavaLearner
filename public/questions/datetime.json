@@ -1,0 +1,314 @@
+{
+  "topic": "datetime",
+  "keyPoints": [
+    {
+      "title": "Le classi principali",
+      "body": "`LocalDate` (solo data), `LocalTime` (solo ora) e `LocalDateTime` (data e ora) non hanno fuso orario; `ZonedDateTime` aggiunge una `ZoneId`; `Instant` è un punto sulla linea del tempo in UTC (secondi dall'epoch 1970-01-01T00:00Z) e si stampa con la `Z` finale. Non esistono costruttori pubblici: si usano `of()`, `now()`, `parse()`, `from()`."
+    },
+    {
+      "title": "Immutabilità",
+      "body": "Tutte le classi date/time sono immutabili: `plusDays()`, `minusMonths()`, `withYear()` e simili restituiscono un NUOVO oggetto. Se il risultato non viene assegnato (`d.plusDays(1);`), l'oggetto originale resta invariato: è una trappola classica dell'esame."
+    },
+    {
+      "title": "Valori non validi e aritmetica di fine mese",
+      "body": "`LocalDate.of(2023, 2, 29)` compila ma lancia `DateTimeException` a runtime. I mesi partono da 1 (o si usa l'enum `Month`). `plusMonths()` aggiusta il giorno all'ultimo valido del mese: 31 gennaio + 1 mese = 29 febbraio 2024, e il giorno perso non viene recuperato col mese successivo."
+    },
+    {
+      "title": "Period vs Duration",
+      "body": "`Period` esprime anni, mesi e giorni (`P1Y2M3D`); `Duration` ore, minuti, secondi e nanosecondi (`PT1H30M`, e `Duration.ofDays(1)` si stampa `PT24H`). Sommare una `Duration` a una `LocalDate` o un `Period` con giorni a una `LocalTime` lancia `UnsupportedTemporalTypeException`. I metodi `of...()` sono statici: `Period.ofYears(1).ofDays(3)` vale solo `P3D`."
+    },
+    {
+      "title": "between()",
+      "body": "`Period.between(a, b)` e `Duration.between(a, b)` includono il primo estremo ed escludono il secondo; se `b` precede `a` il risultato è negativo (`PT-20H-30M`). `ChronoUnit.DAYS.between(a, b)` restituisce un `long` con il numero totale di unità, mentre `Period` scompone in mesi e giorni."
+    },
+    {
+      "title": "Formattazione e parsing",
+      "body": "`toString()` e `parse()` senza formatter usano il formato ISO (`2024-03-05`, `09:30`, `2024-03-05T09:30`): le cifre devono avere lo zero iniziale, altrimenti `DateTimeParseException`. Con `DateTimeFormatter.ofPattern()`, `M` è il mese e `m` i minuti; un pattern con campi che l'oggetto non possiede lancia `UnsupportedTemporalTypeException`."
+    },
+    {
+      "title": "Ora legale (DST)",
+      "body": "Se un `LocalDateTime` cade nel buco del cambio d'ora (es. 02:30 del 31/03/2024 a Roma), `ZonedDateTime` lo sposta in avanti della durata del buco (03:30). Sommare un `Period` di un giorno mantiene l'ora locale, mentre sommare una `Duration` di 24 ore aggiunge tempo esatto e quindi l'ora locale può cambiare."
+    },
+    {
+      "title": "get, with e TemporalAdjusters",
+      "body": "`getMonth()` restituisce l'enum `Month`, `getMonthValue()` un `int`; `get(ChronoField.X)` lancia `UnsupportedTemporalTypeException` se il campo non è supportato. `with()` imposta un campo o applica un `TemporalAdjuster` (es. `TemporalAdjusters.firstDayOfNextMonth()`, `next(DayOfWeek.MONDAY)`). Anche `Instant` non supporta unità basate sul calendario come `MONTHS`."
+    }
+  ],
+  "questions": [
+    {
+      "id": "datetime-001",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "import java.time.*;\n\npublic class Immutable {\n    public static void main(String[] args) {\n        LocalDate d = LocalDate.of(2024, 1, 31);\n        d.plusDays(1);\n        d.withYear(2025);\n        System.out.println(d);\n    }\n}",
+      "options": [
+        "2025-02-01",
+        "2024-01-31",
+        "2024-02-01",
+        "2025-01-31",
+        "Compilation fails."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`LocalDate` è immutabile: `plusDays()` e `withYear()` restituiscono nuovi oggetti, che qui vengono scartati perché non assegnati. La variabile `d` continua a riferirsi alla data originale, quindi si stampa `2024-01-31`. Il codice compila: ignorare il valore restituito da un metodo è lecito.",
+      "source": "JSE17 DEV - 22 DateTimeAPI"
+    },
+    {
+      "id": "datetime-002",
+      "difficulty": 1,
+      "prompt": "Which class should be used to represent the date and time of a meeting, such as March 18 at 13:45, without any time zone information?",
+      "code": null,
+      "options": [
+        "`Instant`",
+        "`ZonedDateTime`",
+        "`LocalDate`",
+        "`OffsetTime`",
+        "`LocalDateTime`"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "`LocalDateTime` contiene data e ora senza fuso orario: è la rappresentazione \"umana\" adatta al caso. `LocalDate` non ha l'orario, `ZonedDateTime` include una `ZoneId`, `OffsetTime` contiene solo l'ora con un offset, e `Instant` è un timestamp macchina in UTC, non pensato per date leggibili.",
+      "source": "JSE17 DEV - 22 DateTimeAPI"
+    },
+    {
+      "id": "datetime-003",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "import java.time.*;\n\npublic class Amounts {\n    public static void main(String[] args) {\n        Period p = Period.of(1, 2, 3);\n        Duration d = Duration.ofMinutes(90);\n        System.out.println(p + \" \" + d);\n    }\n}",
+      "options": [
+        "P1Y2M3D PT1H30M",
+        "P1Y2M3D PT90M",
+        "1Y2M3D 1H30M",
+        "P3D2M1Y PT1H30M",
+        "PT1Y2M3D P1H30M"
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "`Period.of(anni, mesi, giorni)` si stampa in formato ISO-8601 come `P1Y2M3D`. Una `Duration` si stampa con il prefisso `PT` (la `T` separa la parte oraria) e i minuti vengono normalizzati in ore: 90 minuti diventano `PT1H30M`.",
+      "source": "JSE17 DEV - 22 DateTimeAPI"
+    },
+    {
+      "id": "datetime-004",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "import java.time.*;\n\npublic class Leap {\n    public static void main(String[] args) {\n        LocalDate d = LocalDate.of(2023, 2, 29);\n        System.out.println(d);\n    }\n}",
+      "options": [
+        "2023-03-01",
+        "2023-02-28",
+        "Compilation fails.",
+        "A DateTimeException is thrown at runtime.",
+        "2023-02-29"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Il 2023 non è bisestile, quindi il 29 febbraio non esiste. Il compilatore non può saperlo (gli argomenti sono semplici `int`) e il codice compila; a runtime `LocalDate.of()` valida i valori e lancia `DateTimeException`. Non avviene alcun aggiustamento automatico al 28 febbraio o al 1° marzo.",
+      "source": "JSE17 DEV - 22 DateTimeAPI"
+    },
+    {
+      "id": "datetime-005",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.time.*;\n\npublic class Chain {\n    public static void main(String[] args) {\n        Period p = Period.ofYears(1).ofMonths(2).ofDays(3);\n        System.out.println(p);\n    }\n}",
+      "options": [
+        "P1Y2M3D",
+        "P1Y",
+        "P3D",
+        "P1Y2M",
+        "Compilation fails."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`ofYears()`, `ofMonths()` e `ofDays()` sono metodi statici: invocarli su un'istanza è lecito (compila) ma il riferimento viene ignorato e ogni chiamata crea un nuovo `Period` da zero. Conta solo l'ultima chiamata, quindi `p` vale `P3D`. Per combinare i valori si usa `Period.of(1, 2, 3)` oppure `withMonths()`/`plusMonths()`.",
+      "source": "JSE17 DEV - 22 DateTimeAPI"
+    },
+    {
+      "id": "datetime-006",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.time.LocalDate;\nimport java.time.temporal.TemporalAdjusters;\n\npublic class EndOfMonth {\n    public static void main(String[] args) {\n        LocalDate d1 = LocalDate.of(2024, 1, 31).plusMonths(1);\n        LocalDate d2 = d1.plusMonths(1);\n        LocalDate d3 = d1.with(TemporalAdjusters.firstDayOfNextMonth());\n        System.out.println(d1 + \" \" + d2 + \" \" + d3);\n    }\n}",
+      "options": [
+        "2024-03-02 2024-04-02 2024-04-01",
+        "2024-02-29 2024-03-31 2024-03-01",
+        "A DateTimeException is thrown at runtime.",
+        "2024-02-28 2024-03-28 2024-03-01",
+        "2024-02-29 2024-03-29 2024-03-01"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "Il 31 febbraio non esiste: `plusMonths()` non lancia eccezioni ma riduce il giorno all'ultimo valido del mese, cioè il 29 (il 2024 è bisestile). `d2` parte da `2024-02-29` e aggiunge un mese: `2024-03-29`, perché il \"31\" originale non è più noto. `TemporalAdjusters.firstDayOfNextMonth()` porta al primo giorno del mese successivo: `2024-03-01`.",
+      "source": "JSE17 DEV - 22 DateTimeAPI"
+    },
+    {
+      "id": "datetime-007",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.time.*;\nimport java.time.temporal.ChronoUnit;\n\npublic class Between {\n    public static void main(String[] args) {\n        LocalDate a = LocalDate.of(2024, 1, 15);\n        LocalDate b = LocalDate.of(2024, 3, 10);\n        System.out.println(Period.between(a, b) + \" \" + ChronoUnit.DAYS.between(a, b));\n    }\n}",
+      "options": [
+        "P1M24D 55",
+        "P1M23D 54",
+        "P1M24D 54",
+        "P55D 55",
+        "P1M25D 56"
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "`Period.between()` conta prima i mesi interi (dal 15 gennaio al 15 febbraio: 1 mese) e poi i giorni restanti: dal 15 febbraio al 10 marzo 2024 ci sono 14 + 10 = 24 giorni (febbraio 2024 ha 29 giorni). `ChronoUnit.DAYS.between()` restituisce il totale dei giorni: 16 (gennaio) + 29 (febbraio) + 10 (marzo) = 55. In entrambi i casi la prima data è inclusa e la seconda esclusa.",
+      "source": "JSE17 DEV - 22 DateTimeAPI"
+    },
+    {
+      "id": "datetime-008",
+      "difficulty": 2,
+      "prompt": "Given the following declarations, which expressions throw an exception at runtime? (Choose two.)",
+      "code": "LocalDate date = LocalDate.of(2024, 5, 1);\nLocalTime time = LocalTime.of(10, 0);\nLocalDateTime ldt = LocalDateTime.of(date, time);",
+      "options": [
+        "`date.plus(Period.ofDays(1))`",
+        "`date.plus(Duration.ofHours(24))`",
+        "`time.plus(Duration.ofHours(25))`",
+        "`time.plus(Period.ofDays(1))`",
+        "`ldt.plus(Duration.ofHours(24))`"
+      ],
+      "correct": [
+        1,
+        3
+      ],
+      "explanation": "Una `Duration` lavora in secondi/nanosecondi: sommarla a una `LocalDate`, che non ha campi orari, lancia `UnsupportedTemporalTypeException`. Un `Period` con giorni sommato a una `LocalTime` fallisce allo stesso modo, perché `LocalTime` non supporta l'unità `DAYS`. `LocalDate` + `Period` e `LocalDateTime` + `Duration` sono combinazioni corrette; `LocalTime` + 25 ore è lecito e fa il giro dell'orologio (`11:00`).",
+      "source": "JSE17 DEV - 22 DateTimeAPI"
+    },
+    {
+      "id": "datetime-009",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.time.LocalDateTime;\nimport java.time.format.DateTimeFormatter;\n\npublic class Fmt {\n    public static void main(String[] args) {\n        LocalDateTime t = LocalDateTime.of(2024, 7, 4, 9, 5);\n        System.out.println(t.format(DateTimeFormatter.ofPattern(\"dd-mm-yyyy\")));\n    }\n}",
+      "options": [
+        "04-07-2024",
+        "04-05-2024",
+        "4-7-2024",
+        "An UnsupportedTemporalTypeException is thrown at runtime.",
+        "07-04-2024"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Nel pattern `mm` significa minuti dell'ora, non mese (che è `MM`). Una `LocalDateTime` possiede i minuti (qui 5), quindi non c'è alcuna eccezione e si stampa `04-05-2024`: giorno 04, minuti 05, anno 2024. L'eccezione si avrebbe formattando una `LocalDate`, che non ha campi orari.",
+      "source": "JSE17 DEV - 22 DateTimeAPI"
+    },
+    {
+      "id": "datetime-010",
+      "difficulty": 2,
+      "prompt": "Which statements complete without throwing an exception? (Choose two.)",
+      "code": null,
+      "options": [
+        "`LocalDate.parse(\"2024-03-05\");`",
+        "`LocalDate.parse(\"2024-3-5\");`",
+        "`LocalTime.parse(\"9:30\");`",
+        "`LocalTime.parse(\"09:30\");`",
+        "`LocalDateTime.parse(\"2024-03-05 09:30\");`"
+      ],
+      "correct": [
+        0,
+        3
+      ],
+      "explanation": "Senza formatter, `parse()` usa il formato ISO, che richiede mese, giorno, ore e minuti su due cifre: `\"2024-03-05\"` e `\"09:30\"` sono validi. `\"2024-3-5\"` e `\"9:30\"` lanciano `DateTimeParseException` per le cifre mancanti, e `LocalDateTime.parse()` richiede la `T` tra data e ora (`2024-03-05T09:30`), non uno spazio.",
+      "source": "JSE17 DEV - 22 DateTimeAPI"
+    },
+    {
+      "id": "datetime-011",
+      "difficulty": 3,
+      "prompt": "In the Europe/Rome time zone, on March 31, 2024 clocks jumped from 02:00 directly to 03:00 (start of daylight saving time). What is the result?",
+      "code": "import java.time.*;\n\npublic class Gap {\n    public static void main(String[] args) {\n        ZoneId rome = ZoneId.of(\"Europe/Rome\");\n        ZonedDateTime z = ZonedDateTime.of(LocalDateTime.of(2024, 3, 31, 2, 30), rome);\n        System.out.println(z);\n    }\n}",
+      "options": [
+        "2024-03-31T02:30+01:00[Europe/Rome]",
+        "2024-03-31T01:30+01:00[Europe/Rome]",
+        "2024-03-31T03:30+02:00[Europe/Rome]",
+        "2024-03-31T02:30+02:00[Europe/Rome]",
+        "A DateTimeException is thrown at runtime."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Le 02:30 del 31 marzo 2024 non esistono a Roma: cadono nel \"buco\" del passaggio all'ora legale. `ZonedDateTime.of()` non lancia eccezioni ma sposta l'orario in avanti della durata del buco (un'ora), ottenendo le 03:30 con il nuovo offset estivo `+02:00`.",
+      "source": "JSE17 DEV - 22 DateTimeAPI"
+    },
+    {
+      "id": "datetime-012",
+      "difficulty": 3,
+      "prompt": "In the Europe/Rome time zone, daylight saving time started at 02:00 on March 31, 2024. What is the result?",
+      "code": "import java.time.*;\n\npublic class DstMath {\n    public static void main(String[] args) {\n        ZonedDateTime z = ZonedDateTime.of(2024, 3, 30, 12, 0, 0, 0, ZoneId.of(\"Europe/Rome\"));\n        ZonedDateTime p = z.plus(Period.ofDays(1));\n        ZonedDateTime d = z.plus(Duration.ofDays(1));\n        System.out.println(p.toLocalTime() + \" \" + d.toLocalTime() + \" \" + Duration.between(z, p).toHours());\n    }\n}",
+      "options": [
+        "12:00 12:00 24",
+        "13:00 12:00 23",
+        "12:00 11:00 25",
+        "12:00 13:00 23",
+        "12:00 13:00 24"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Un `Period` di un giorno lavora sulla data locale: si passa al 31 marzo mantenendo le 12:00, anche se tra i due istanti sono trascorse solo 23 ore reali (lo dimostra `Duration.between()`, che dà 23). Una `Duration` di un giorno equivale invece a 24 ore esatte: a causa dell'ora persa, l'orario locale risultante è 13:00.",
+      "source": "JSE17 DEV - 22 DateTimeAPI"
+    },
+    {
+      "id": "datetime-013",
+      "difficulty": 3,
+      "prompt": "Rome is at UTC+1 in January. What is the result?",
+      "code": "import java.time.*;\nimport java.time.temporal.ChronoUnit;\n\npublic class Stamp {\n    public static void main(String[] args) {\n        ZonedDateTime z = ZonedDateTime.of(2024, 1, 15, 10, 0, 0, 0, ZoneId.of(\"Europe/Rome\"));\n        Instant i = z.toInstant();\n        System.out.println(i);\n        System.out.println(i.plus(1, ChronoUnit.DAYS));\n        System.out.println(i.plus(1, ChronoUnit.MONTHS));\n    }\n}",
+      "options": [
+        "2024-01-15T10:00:00Z, 2024-01-16T10:00:00Z, 2024-02-15T10:00:00Z",
+        "2024-01-15T09:00:00Z, 2024-01-16T09:00:00Z, 2024-02-15T09:00:00Z",
+        "2024-01-15T10:00+01:00, 2024-01-16T10:00+01:00, then an exception is thrown",
+        "2024-01-15T11:00:00Z, 2024-01-16T11:00:00Z, then an exception is thrown",
+        "2024-01-15T09:00:00Z, 2024-01-16T09:00:00Z, then an exception is thrown"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "Un `Instant` rappresenta il momento in UTC e si stampa con la `Z`: le 10:00 a Roma (UTC+1) sono le `09:00:00Z`. `Instant` supporta unità fisse fino a `DAYS` (24 ore), quindi la seconda riga è `2024-01-16T09:00:00Z`. Le unità basate sul calendario come `MONTHS` non sono supportate perché la loro lunghezza dipende dal fuso e dalla data: viene lanciata `UnsupportedTemporalTypeException`.",
+      "source": "JSE17 DEV - 22 DateTimeAPI"
+    },
+    {
+      "id": "datetime-014",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "import java.time.*;\n\npublic class Shift {\n    public static void main(String[] args) {\n        LocalTime start = LocalTime.of(22, 0);\n        LocalTime end = LocalTime.of(1, 30);\n        Duration d = Duration.between(start, end);\n        System.out.println(d + \" \" + d.isNegative());\n    }\n}",
+      "options": [
+        "PT3H30M false",
+        "PT-20H-30M true",
+        "PT20H30M false",
+        "PT-3H-30M true",
+        "A DateTimeException is thrown at runtime."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Le `LocalTime` non hanno data, quindi `Duration.between()` non può sapere che l'01:30 è \"il giorno dopo\": calcola semplicemente 01:30 − 22:00 = −20 ore e 30 minuti. Il risultato è una durata negativa, stampata come `PT-20H-30M`, e `isNegative()` restituisce `true`. Nessuna eccezione: le durate negative sono lecite.",
+      "source": "JSE17 DEV - 22 DateTimeAPI"
+    },
+    {
+      "id": "datetime-015",
+      "difficulty": 3,
+      "prompt": "Which statements are true? (Choose three.)",
+      "code": null,
+      "options": [
+        "`LocalDate` has a public no-argument constructor that creates today's date.",
+        "`Duration.ofDays(1)` is printed as `PT24H`.",
+        "`Month.MARCH.getValue()` returns `2`.",
+        "`Period.ofWeeks(2)` is printed as `P14D`.",
+        "An `Instant` stores a time zone together with the timestamp.",
+        "On a `LocalDate`, `getMonth()` returns a `Month` and `getMonthValue()` an `int`."
+      ],
+      "correct": [
+        1,
+        3,
+        5
+      ],
+      "explanation": "Vere: `Duration` non ha l'unità giorno nella sua stringa e normalizza in ore (`PT24H`); `Period` non memorizza settimane e converte 2 settimane in 14 giorni (`P14D`); `getMonth()` restituisce l'enum `Month`, `getMonthValue()` il numero. False: le classi `java.time` non hanno costruttori pubblici (si usa `LocalDate.now()`); i mesi partono da 1, quindi `MARCH.getValue()` è 3; `Instant` è sempre in UTC e non contiene alcun fuso.",
+      "source": "JSE17 DEV - 22 DateTimeAPI"
+    }
+  ]
+}

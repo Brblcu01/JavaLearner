@@ -1,0 +1,334 @@
+{
+  "topic": "java17",
+  "keyPoints": [
+    {
+      "title": "Tipi e costanti dello switch",
+      "body": "Lo switch accetta `byte`, `short`, `char`, `int`, i relativi wrapper, `String` ed `enum` (mai `long`, `boolean`, `float`, `double`). Le etichette dei `case` devono essere costanti a tempo di compilazione: letterali, variabili `final` primitive o `String` inizializzate con una costante, espressioni costanti o costanti dell'enum scritte senza il nome del tipo. Non sono ammesse invocazioni di metodo né variabili wrapper, anche se `final`; da Java 14 si possono elencare più valori separati da virgola."
+    },
+    {
+      "title": "Due sintassi: «:» e «->»",
+      "body": "Con i `case` scritti con «:» vale il fall-through: senza `break` l'esecuzione prosegue nei case successivi. Con l'operatore «->» si esegue solo l'espressione, il blocco o il `throw` di quel caso, senza fall-through e senza bisogno di `break`. Le due forme non si possono mescolare nello stesso switch."
+    },
+    {
+      "title": "Switch come espressione e yield",
+      "body": "Uno switch usato come valore deve terminare con `;`, ogni ramo deve produrre un valore o lanciare un'eccezione, e in un blocco `{}` il valore si restituisce con `yield` (un blocco che termina senza `yield` non compila). `yield` funziona anche con i case «:», dove il fall-through resta valido. Lo switch expression deve essere esaustivo: su `int` o `String` serve `default`, su un enum basta coprire tutte le costanti."
+    },
+    {
+      "title": "null e pattern nello switch",
+      "body": "In Java 17 uno switch su un riferimento (`String`, wrapper, enum) che vale `null` compila ma lancia `NullPointerException` a runtime. Il pattern matching nello switch (`case Integer i ->`) e i record pattern NON sono funzionalità standard di Java 17 (sono diventati definitivi in Java 21): con `--release 17` il codice non compila."
+    },
+    {
+      "title": "Record: regole di base",
+      "body": "Un record è implicitamente `final`, estende implicitamente `java.lang.Record` (quindi non può estendere altre classi) ma può implementare interfacce. Genera campi `private final`, costruttore canonico, accessor senza prefisso `get` (es. `name()`), `equals()`, `hashCode()` e `toString()` nel formato `Nome[campo=valore, ...]`. Nel corpo non sono ammessi campi o inizializzatori di istanza (quelli `static` sì), e un record non può essere `abstract`, `sealed` o `non-sealed`."
+    },
+    {
+      "title": "Costruttori dei record",
+      "body": "Il costruttore canonico in forma classica deve inizializzare esplicitamente tutti i campi. La forma compatta (`public Persona { ... }`, senza parametri) può validare o riassegnare i parametri, ma non può usare `this.campo = ...`: i campi vengono assegnati implicitamente alla fine. Un costruttore non canonico deve invocare un altro costruttore con `this(...)` come prima istruzione; compatto e canonico classico insieme non compilano perché hanno la stessa firma."
+    },
+    {
+      "title": "Classi sealed",
+      "body": "`sealed` con `permits` elenca tutti e soli i sottotipi ammessi; ogni sottoclasse permessa deve estenderla direttamente ed essere dichiarata `final`, `sealed` o `non-sealed` (anche se `abstract`). Le sottoclassi devono stare nello stesso modulo o, nel modulo senza nome, nello stesso package; se sono nello stesso file sorgente la clausola `permits` si può omettere. Record ed enum, implicitamente final, possono implementare un'interfaccia sealed senza altri modificatori."
+    },
+    {
+      "title": "instanceof con pattern matching",
+      "body": "`if (o instanceof String s)` esegue test e cast insieme: la variabile `s` esiste solo dove il compilatore è certo che il test sia vero. Con `&&` la si può usare nella parte destra, con `||` no (errore di compilazione). Con `if (!(o instanceof Integer i)) return;` la variabile `i` è in scope dopo l'if (flow scoping)."
+    }
+  ],
+  "questions": [
+    {
+      "id": "java17-001",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        String day = \"SAT\";\n        int n = switch (day) {\n            case \"SAT\", \"SUN\" -> 0;\n            case \"MON\" -> 1;\n            default -> 2;\n        };\n        System.out.println(n);\n    }\n}",
+      "options": [
+        "0",
+        "1",
+        "2",
+        "Compilation fails."
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "Da Java 14 un `case` può elencare più etichette separate da virgola e la forma con «->» non ha fall-through. `day` vale `\"SAT\"`, quindi viene selezionato il primo caso e lo switch expression produce 0. Il codice compila: lo switch è esaustivo grazie a `default` ed è chiuso dal punto e virgola dell'assegnazione.",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "java17-002",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        int key = 2;\n        int x = switch (key) {\n            case 1:\n                yield 10;\n            case 2:\n                System.out.print(\"two \");\n            case 3:\n                System.out.print(\"three \");\n            default:\n                yield 30;\n        };\n        System.out.println(x);\n    }\n}",
+      "options": [
+        "two 30",
+        "two three 30",
+        "10",
+        "Compilation fails.",
+        "three 30"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Uno switch con i case «:» può restituire un valore tramite `yield`, e in questa forma il fall-through resta valido. Con `key = 2` si entra nel `case 2`, si stampa `two `, poi senza `break` si prosegue nel `case 3` (`three `) e nel `default`, dove `yield 30` assegna 30 a `x`. Compila perché ogni percorso termina con un `yield`.",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "java17-003",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    enum Size { S, M, L }\n    public static void main(String[] args) {\n        Size sz = Size.M;\n        int a = switch (sz) {     // line 1\n            case S -> 1;\n            case M -> 2;\n            case L -> 3;\n        };\n        int b = switch (a) {      // line 2\n            case 1 -> 10;\n            case 2 -> 20;\n        };\n        System.out.println(a + \" \" + b);\n    }\n}",
+      "options": [
+        "2 20",
+        "Compilation fails only at line 1.",
+        "Compilation fails only at line 2.",
+        "Compilation fails at both line 1 and line 2.",
+        "An IllegalStateException is thrown at runtime."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Uno switch expression deve essere esaustivo. Su un enum è sufficiente coprire tutte le costanti (`S`, `M`, `L`), quindi la riga 1 compila anche senza `default`. Su un `int` i valori possibili non possono essere tutti elencati: senza `default` la riga 2 non compila (`the switch expression does not cover all possible input values`).",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "java17-004",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        int k = 2;\n        String s = switch (k) {\n            case 1 -> \"one\";\n            case 2 -> {\n                System.out.print(\"two \");\n            }\n            default -> \"many\";\n        };\n        System.out.println(s);\n    }\n}",
+      "options": [
+        "two ",
+        "two null",
+        "two many",
+        "Compilation fails.",
+        "Nothing is printed."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Quando uno switch expression usa un blocco `{}` a destra della freccia, il blocco deve restituire il valore con `yield` (oppure lanciare un'eccezione). Il blocco del `case 2` termina senza `yield`, quindi la compilazione fallisce (`switch rule completes without providing a value`). Non c'è fall-through verso `default` né un valore `null` implicito.",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "java17-005",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        String s = null;\n        switch (s) {\n            case \"A\" -> System.out.print(\"A\");\n            default -> System.out.print(\"D\");\n        }\n    }\n}",
+      "options": [
+        "D",
+        "Nothing is printed.",
+        "Compilation fails.",
+        "A NullPointerException is thrown at runtime."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Il codice compila, ma in Java 17 uno switch su un tipo riferimento (`String`, wrapper, enum) che vale `null` lancia `NullPointerException` a runtime: il ramo `default` NON intercetta il valore `null`.",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "java17-006",
+      "difficulty": 3,
+      "prompt": "Which case labels, inserted independently at // INSERT HERE, allow the code to compile? (Choose two.)",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        int x = 5;\n        final int A = 1;\n        int b = 2;\n        final Integer C = 3;\n        switch (x) {\n            // INSERT HERE\n                System.out.print(\"match \");\n            default: System.out.print(\"d\");\n        }\n    }\n}",
+      "options": [
+        "case b:",
+        "case C:",
+        "case A:",
+        "case Integer.valueOf(4):",
+        "case 5L:",
+        "case 2 + 3:"
+      ],
+      "correct": [
+        2,
+        5
+      ],
+      "explanation": "Le etichette devono essere costanti a tempo di compilazione e assegnabili al tipo dello switch. `A` è una variabile locale `final` di tipo primitivo inizializzata con un letterale, quindi è una costante; `2 + 3` è un'espressione costante. `b` non è `final`; `C` è `final` ma di tipo `Integer`: un oggetto wrapper non è mai una costante. `Integer.valueOf(4)` è un'invocazione di metodo, non ammessa nei case, e `5L` è un `long`, non assegnabile a `int` senza cast (`possible lossy conversion`).",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "java17-007",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    record Point(int x, int y) {}\n    public static void main(String[] args) {\n        Point p = new Point(1, 2);\n        System.out.println(p.x() + p.y() + \" \" + p);\n    }\n}",
+      "options": [
+        "12 Point[x=1, y=2]",
+        "3 Point[x=1, y=2]",
+        "3 Point(x=1, y=2)",
+        "3 Point@ followed by a hash code",
+        "Compilation fails."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Gli accessor di un record hanno lo stesso nome del componente, senza prefisso `get`: `x()` e `y()`. L'espressione è valutata da sinistra: `1 + 2` è una somma intera (3) e solo dopo avviene la concatenazione con `\" \"`. Il `toString()` generato ha il formato `Point[x=1, y=2]`, non quello di `Object` con l'hash code.",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "java17-008",
+      "difficulty": 2,
+      "prompt": "Which statements about records are true? (Choose three.)",
+      "code": null,
+      "options": [
+        "A record is implicitly final.",
+        "A record can extend another class if that class is abstract.",
+        "A record can implement one or more interfaces.",
+        "A record can declare instance fields in its body in addition to its components.",
+        "A record can declare static fields.",
+        "The accessor generated for a component named side is getSide()."
+      ],
+      "correct": [
+        0,
+        2,
+        4
+      ],
+      "explanation": "Un record è implicitamente `final` e può implementare interfacce. Nel corpo può dichiarare campi `static`, ma non campi di istanza (errore: `field declaration must be static`), perché lo stato è dato solo dai componenti. Non può estendere alcuna classe, nemmeno astratta, perché estende già implicitamente `java.lang.Record`. L'accessor del componente `side` si chiama `side()`, non `getSide()`.",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "java17-009",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    record Journal(int id, String name) {\n        Journal {\n            id = id + 1;\n            if (name == null) name = \"none\";\n        }\n    }\n    public static void main(String[] args) {\n        System.out.println(new Journal(1, null));\n    }\n}",
+      "options": [
+        "Journal[id=1, name=null]",
+        "Journal[id=2, name=null]",
+        "Journal[id=1, name=none]",
+        "Compilation fails.",
+        "Journal[id=2, name=none]"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "`Journal { ... }` è il costruttore canonico in forma compatta: dentro di esso `id` e `name` sono i parametri impliciti, che possono essere validati e anche riassegnati. Al termine del costruttore i campi vengono inizializzati automaticamente con i valori attuali dei parametri, quindi `id = 2` e `name = \"none\"`. Non compilerebbe invece `this.id = id;`, perché nella forma compatta non si possono assegnare i campi.",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "java17-010",
+      "difficulty": 3,
+      "prompt": "Which record declarations compile? (Choose two.)",
+      "code": null,
+      "options": [
+        "record A(int x) { A { this.x = x; } }",
+        "record B(int x) { B() { this(0); } }",
+        "record C(int x) { int y; }",
+        "record D(int x) { static int count; }",
+        "record E(int x) { E() { } }",
+        "record F(int x) extends Object { }"
+      ],
+      "correct": [
+        1,
+        3
+      ],
+      "explanation": "`B` dichiara un costruttore non canonico che, come richiesto, invoca un altro costruttore con `this(...)` come prima istruzione. `D` aggiunge un campo `static`, ammesso. `A` non compila perché nel costruttore compatto non si può assegnare `this.x` (il campo final è assegnato implicitamente). `C` dichiara un campo di istanza, vietato. `E` ha un costruttore non canonico che non invoca `this(...)`. `F` non compila perché un record non può avere una clausola `extends`.",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "java17-011",
+      "difficulty": 2,
+      "prompt": "Given the following declarations in the same source file, which changes, each applied independently, allow the code to compile? (Choose two.)",
+      "code": "sealed class Shape permits Circle, Square {}\nfinal class Circle extends Shape {}\nclass Square extends Shape {}",
+      "options": [
+        "Mark Square as abstract.",
+        "Mark Square as final.",
+        "Remove the permits clause from Shape.",
+        "Mark Square as sealed.",
+        "Mark Square as non-sealed."
+      ],
+      "correct": [
+        1,
+        4
+      ],
+      "explanation": "Ogni sottoclasse permessa di una classe `sealed` deve dichiarare uno fra `final`, `sealed` o `non-sealed`: `Square` non ne ha nessuno. Rendendola `final` (nessuna ulteriore estensione) o `non-sealed` (estensione libera) il codice compila. Dichiararla `sealed` non basta, perché una classe sealed senza sottoclassi non compila (`sealed class must have subclasses`). `abstract` non sostituisce i modificatori richiesti, e togliere `permits` non risolve: le sottoclassi nello stesso file vengono dedotte, ma devono comunque avere il modificatore.",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "java17-012",
+      "difficulty": 3,
+      "prompt": "Which statements about sealed types in Java 17 are true? (Choose three.)",
+      "code": null,
+      "options": [
+        "When the code is in the unnamed module, a permitted subclass can be in a different package from the sealed class.",
+        "If a sealed class and all its permitted subclasses are declared in the same source file, the permits clause can be omitted.",
+        "A permitted subclass that is declared abstract does not need final, sealed, or non-sealed.",
+        "A record can be a permitted subtype of a sealed interface.",
+        "A record that implements a sealed interface must be declared non-sealed.",
+        "An enum can implement a sealed interface that lists it in its permits clause."
+      ],
+      "correct": [
+        1,
+        3,
+        5
+      ],
+      "explanation": "Se la classe sealed e le sue sottoclassi stanno nello stesso file, il compilatore deduce i sottotipi permessi e `permits` si può omettere. Record ed enum sono implicitamente final, quindi possono implementare un'interfaccia sealed senza aggiungere modificatori; anzi `non-sealed` su un record o su un enum non compila. Nel modulo senza nome le sottoclassi devono stare nello stesso package della classe sealed (in un modulo esplicito basta lo stesso modulo). Anche una sottoclasse `abstract` deve dichiarare `final`, `sealed` o `non-sealed`.",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "java17-013",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    static void test(Object o) {\n        if (!(o instanceof Integer i)) {\n            System.out.print(\"not int \");\n            return;\n        }\n        System.out.print(i + 1 + \" \");\n    }\n    public static void main(String[] args) {\n        test(42);\n        test(\"42\");\n    }\n}",
+      "options": [
+        "43 not int ",
+        "not int not int ",
+        "Compilation fails.",
+        "43 43 ",
+        "A ClassCastException is thrown at runtime."
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "Con il pattern matching di `instanceof` la variabile `i` è in scope dove il compilatore è certo che il test sia vero. Poiché il ramo `if` (test falso) termina sempre con `return`, dopo l'if `o` è sicuramente un `Integer` e `i` è utilizzabile (flow scoping). Con 42 si stampa `43 `; con la stringa `\"42\"` il test fallisce e si stampa `not int `. Nessun cast esplicito, quindi nessuna `ClassCastException`.",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "java17-014",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        Object o = \"hello\";\n        if (o instanceof String s || s.length() > 3) {\n            System.out.println(\"long\");\n        }\n    }\n}",
+      "options": [
+        "long",
+        "Nothing is printed.",
+        "A NullPointerException is thrown at runtime.",
+        "Compilation fails.",
+        "A ClassCastException is thrown at runtime."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Con `||` la parte destra viene valutata proprio quando `o instanceof String s` è falso, cioè quando `s` non è stata inizializzata: per questo la variabile di pattern non è in scope nella parte destra e la compilazione fallisce (`cannot find symbol`). Con `&&` invece il codice compilerebbe e stamperebbe `long`.",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "java17-015",
+      "difficulty": 3,
+      "prompt": "The following code is compiled with javac --release 17. What is the result?",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        Object o = 5;\n        String r = switch (o) {\n            case Integer i -> \"int \" + i;\n            default -> \"other\";\n        };\n        System.out.println(r);\n    }\n}",
+      "options": [
+        "int 5",
+        "other",
+        "A ClassCastException is thrown at runtime.",
+        "Compilation fails."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "In Java 17 lo switch accetta solo `byte`, `short`, `char`, `int`, i wrapper, `String` ed enum, e i `case` devono essere costanti. Il pattern matching nello switch (`case Integer i`) in Java 17 era solo una preview e diventa standard solo in Java 21: compilando con `--release 17` senza `--enable-preview` si ottiene un errore (`patterns in switch statements are not supported in -source 17`). In Java 17 lo stesso risultato si ottiene con `if (o instanceof Integer i)`.",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "java17-016",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        int k = 1;\n        switch (k) {\n            case 1 -> System.out.print(\"one \");\n            case 2 -> System.out.print(\"two \");\n            default -> System.out.print(\"other \");\n        }\n    }\n}",
+      "options": [
+        "one two other ",
+        "one ",
+        "one two ",
+        "Compilation fails."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Con la sintassi «->» non esiste fall-through: si esegue solo l'istruzione del caso selezionato, senza bisogno di `break`. Viene quindi stampato solo `one `. Lo switch è qui usato come istruzione (nessun valore restituito), quindi non deve essere esaustivo e non richiede il punto e virgola finale.",
+      "source": "JSE17 DEV - 21 newElements17"
+    }
+  ]
+}

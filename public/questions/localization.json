@@ -1,0 +1,313 @@
+{
+  "topic": "localization",
+  "keyPoints": [
+    {
+      "title": "Locale: lingua e paese",
+      "body": "Un `Locale` è formato da lingua (minuscola, es. `it`) e paese/regione (maiuscolo, es. `IT`) e si stampa come `it_IT`. Attenzione alle costanti: `Locale.ITALY` è `it_IT` (lingua + paese) mentre `Locale.ITALIAN` è solo `it`. `Locale` è immutabile: non ha metodi `set`."
+    },
+    {
+      "title": "Costruttori, builder e default",
+      "body": "`new Locale(\"fr\", \"CA\")` non valida gli argomenti (normalizza solo maiuscole/minuscole), mentre `Locale.Builder` li valida e lancia `IllformedLocaleException` (es. regione di 3 lettere). Il locale di default si legge con `Locale.getDefault()` e si cambia con `Locale.setDefault()` o con `-Duser.language`/`-Duser.region`. `Locale.of()` esiste solo da Java 19."
+    },
+    {
+      "title": "Ricerca del ResourceBundle",
+      "body": "Con `getBundle(\"Msg\", locale)` la JVM cerca nell'ordine: `Msg_lingua_PAESE`, `Msg_lingua`, poi le stesse varianti del locale di DEFAULT, infine il bundle base `Msg`. Si ferma al primo trovato; se non trova nulla, nemmeno il base, lancia `MissingResourceException`. Una classe Java con lo stesso nome ha la precedenza sul file `.properties`."
+    },
+    {
+      "title": "Ereditarietà delle chiavi",
+      "body": "Una volta scelto il bundle, le chiavi mancanti vengono cercate solo nei suoi genitori lungo la stessa catena (`Msg_en_US` → `Msg_en` → `Msg`), mai nei bundle del locale di default. Se la chiave non c'è in nessuno, `getString()` lancia `MissingResourceException` (non restituisce `null`)."
+    },
+    {
+      "title": "Properties e ListResourceBundle",
+      "body": "I file si chiamano `base_lingua_PAESE.properties` e contengono coppie `chiave=valore` (anche `chiave:valore` o `chiave valore`; i commenti iniziano con `#` o `!`). Un `ListResourceBundle` si definisce implementando `Object[][] getContents()`: i valori sono `Object`, quindi `getString()` su un valore non `String` lancia `ClassCastException`; si usa `getObject()`."
+    },
+    {
+      "title": "NumberFormat",
+      "body": "`NumberFormat` è astratta: si ottiene con factory come `getInstance()`/`getNumberInstance()`, `getIntegerInstance()`, `getCurrencyInstance()`, `getPercentInstance()`, eventualmente con un `Locale`. Il formato numerico usa al massimo 3 decimali, il formato intero e la percentuale 0, e arrotondano con `HALF_EVEN` (2.5 → 2, 3.5 → 4)."
+    },
+    {
+      "title": "Parsing",
+      "body": "`NumberFormat.parse()` lancia la checked `ParseException` e legge dall'inizio della stringa fermandosi al primo carattere non valido: `\"1,234.50xyz\"` in `Locale.US` dà `1234.5`, mentre una stringa che non inizia con un numero lancia l'eccezione. Il risultato è un `Number` (`Long` o `Double`)."
+    },
+    {
+      "title": "DateTimeFormatter e MessageFormat",
+      "body": "Nei pattern `M` è il mese e `m` i minuti, `d` il giorno del mese e `D` il giorno dell'anno, `H` l'ora 0-23 e `h` l'ora 1-12; `MMM`/`MMMM` producono il nome del mese nella lingua del `Locale`. Formattare una `LocalDate` con un campo orario lancia `UnsupportedTemporalTypeException`. `MessageFormat.format()` sostituisce i segnaposto `{0}`, `{1}`… e tratta l'apostrofo singolo come carattere di quoting (`''` stampa un apostrofo)."
+    }
+  ],
+  "questions": [
+    {
+      "id": "localization-001",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "import java.util.*;\n\npublic class Codes {\n    public static void main(String[] args) {\n        System.out.println(Locale.ITALY + \" \" + Locale.ITALIAN + \" \" + Locale.UK);\n    }\n}",
+      "options": [
+        "it_IT it en_GB",
+        "it_IT it en_UK",
+        "IT it_IT GB",
+        "it it_IT en_GB",
+        "Italy Italian United Kingdom"
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "Le costanti che rappresentano un paese includono lingua e paese: `Locale.ITALY` è `it_IT` e `Locale.UK` è `en_GB` (il codice ISO del Regno Unito è `GB`, non `UK`). Le costanti che rappresentano una lingua contengono solo la lingua: `Locale.ITALIAN` è `it`. `toString()` restituisce i codici, non i nomi per esteso (per quelli serve `getDisplayName()`).",
+      "source": "JSE17 DEV - 17 Localization"
+    },
+    {
+      "id": "localization-002",
+      "difficulty": 1,
+      "prompt": "Which expressions produce a Locale equal to the one for French as spoken in Canada? (Choose three.)",
+      "code": null,
+      "options": [
+        "`new Locale(\"fr\", \"CA\")`",
+        "`Locale.CANADA`",
+        "`Locale.CANADA_FRENCH`",
+        "`new Locale(\"fr_CA\")`",
+        "`new Locale.Builder().setLanguage(\"fr\").setRegion(\"CA\").build()`",
+        "`Locale.FRENCH`"
+      ],
+      "correct": [
+        0,
+        2,
+        4
+      ],
+      "explanation": "`new Locale(\"fr\", \"CA\")`, la costante `Locale.CANADA_FRENCH` e il `Locale.Builder` con lingua `fr` e regione `CA` producono tutti `fr_CA`. `Locale.CANADA` è `en_CA` (inglese) e `Locale.FRENCH` è solo la lingua `fr`. `new Locale(\"fr_CA\")` usa il costruttore con la sola lingua: crea una lingua chiamata `fr_ca`, senza paese.",
+      "source": "JSE17 DEV - 17 Localization"
+    },
+    {
+      "id": "localization-003",
+      "difficulty": 1,
+      "prompt": "Which statements correctly obtain a NumberFormat object? (Choose two.)",
+      "code": null,
+      "options": [
+        "`NumberFormat nf = new NumberFormat();`",
+        "`NumberFormat nf = NumberFormat.getCurrencyInstance(Locale.US);`",
+        "`NumberFormat nf = NumberFormat.of(Locale.US);`",
+        "`NumberFormat nf = new NumberFormat(Locale.ITALY);`",
+        "`NumberFormat nf = NumberFormat.getPercentInstance();`"
+      ],
+      "correct": [
+        1,
+        4
+      ],
+      "explanation": "`NumberFormat` è una classe astratta: non si istanzia con `new`, si usano i metodi factory statici come `getInstance()`, `getNumberInstance()`, `getIntegerInstance()`, `getCurrencyInstance()` e `getPercentInstance()`, con o senza `Locale`. Un metodo `NumberFormat.of()` non esiste.",
+      "source": "JSE17 DEV - 17 Localization"
+    },
+    {
+      "id": "localization-004",
+      "difficulty": 1,
+      "prompt": "An application loads its bundle with ResourceBundle.getBundle(\"Messages\", new Locale(\"fr\", \"CA\")). Which file name follows the naming convention for the most specific properties bundle of that locale?",
+      "code": null,
+      "options": [
+        "`Messages_CA_fr.properties`",
+        "`Messages-fr-CA.properties`",
+        "`Messages_FR_ca.properties`",
+        "`Messages_fr_CA.properties`"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Il nome del file è `baseName_lingua_PAESE.properties`: prima la lingua in minuscolo, poi il paese in maiuscolo, separati da underscore. L'ordine inverso, i trattini o le maiuscole/minuscole scambiate non rispettano la convenzione e il bundle non verrebbe trovato (su file system case-sensitive).",
+      "source": "JSE17 DEV - 17 Localization"
+    },
+    {
+      "id": "localization-005",
+      "difficulty": 2,
+      "prompt": "The classpath contains exactly these bundles:\nMsg.properties: greeting=Hello, farewell=Bye\nMsg_en.properties: greeting=Hi\nMsg_it.properties: greeting=Ciao, farewell=Addio\nWhat is the result?",
+      "code": "import java.util.*;\n\npublic class Greeter {\n    public static void main(String[] args) {\n        Locale.setDefault(Locale.ITALY);\n        ResourceBundle rb = ResourceBundle.getBundle(\"Msg\", Locale.US);\n        System.out.println(rb.getString(\"greeting\") + \" \" + rb.getString(\"farewell\"));\n    }\n}",
+      "options": [
+        "Hi Addio",
+        "Hi Bye",
+        "Ciao Addio",
+        "Hello Bye",
+        "A MissingResourceException is thrown at runtime."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Per `en_US` si cerca `Msg_en_US` (assente) e poi `Msg_en`, che esiste: viene scelto e `greeting` vale `Hi`. La chiave `farewell` manca in `Msg_en` e viene cercata nei suoi genitori, cioè nel bundle base `Msg` (`Bye`). Il bundle del locale di default (`Msg_it`) non fa parte di questa catena, quindi `Addio` non viene mai usato.",
+      "source": "JSE17 DEV - 17 Localization"
+    },
+    {
+      "id": "localization-006",
+      "difficulty": 2,
+      "prompt": "The classpath contains exactly Labels.properties (title=Home), Labels_it.properties (title=Casa) and Labels_de.properties (title=Haus). What is the result?",
+      "code": "import java.util.*;\n\npublic class Title {\n    public static void main(String[] args) {\n        Locale.setDefault(new Locale(\"it\", \"IT\"));\n        ResourceBundle rb = ResourceBundle.getBundle(\"Labels\", Locale.FRANCE);\n        System.out.println(rb.getString(\"title\"));\n    }\n}",
+      "options": [
+        "Home",
+        "Haus",
+        "Casa",
+        "null",
+        "A MissingResourceException is thrown at runtime."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Per `fr_FR` non esistono né `Labels_fr_FR` né `Labels_fr`. Prima di ricorrere al bundle base, `getBundle()` prova il locale di default `it_IT`: `Labels_it_IT` manca ma `Labels_it` esiste, quindi stampa `Casa`. Il bundle base `Labels` (`Home`) sarebbe usato solo se anche il locale di default non trovasse nulla.",
+      "source": "JSE17 DEV - 17 Localization"
+    },
+    {
+      "id": "localization-007",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.text.NumberFormat;\nimport java.util.Locale;\n\npublic class Numbers {\n    public static void main(String[] args) {\n        double d = 1234.5678;\n        String a = NumberFormat.getNumberInstance(Locale.US).format(d);\n        String b = NumberFormat.getIntegerInstance(Locale.US).format(d);\n        String c = NumberFormat.getNumberInstance(Locale.GERMANY).format(d);\n        System.out.println(a + \" | \" + b + \" | \" + c);\n    }\n}",
+      "options": [
+        "1,234.5678 | 1,234 | 1.234,5678",
+        "1,234.568 | 1,234 | 1,234.568",
+        "1234.568 | 1235 | 1234,568",
+        "1,234.57 | 1,235 | 1.234,57",
+        "1,234.568 | 1,235 | 1.234,568"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "Il formato numerico usa per default al massimo 3 cifre decimali: `1234.5678` diventa `1,234.568` negli Stati Uniti (virgola per le migliaia, punto per i decimali). Il formato intero arrotonda (non tronca) a `1,235`. In `Locale.GERMANY` i separatori sono invertiti: `1.234,568`.",
+      "source": "JSE17 DEV - 17 Localization"
+    },
+    {
+      "id": "localization-008",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.text.*;\nimport java.util.Locale;\n\npublic class Parse {\n    public static void main(String[] args) {\n        NumberFormat nf = NumberFormat.getInstance(Locale.US);\n        try {\n            System.out.print(nf.parse(\"1,234.50xyz\") + \" \");\n            System.out.print(nf.parse(\"x1\"));\n        } catch (ParseException e) {\n            System.out.print(\"error\");\n        }\n    }\n}",
+      "options": [
+        "1234.5 error",
+        "1,234.50 error",
+        "1234.50 1",
+        "error",
+        "Compilation fails."
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "`parse()` legge dall'inizio della stringa e si ferma al primo carattere non numerico: `\"1,234.50xyz\"` viene interpretato come il `Double` `1234.5` (lo zero finale non viene conservato). `\"x1\"` non inizia con un numero, quindi viene lanciata la `ParseException` (checked, qui gestita), che stampa `error`.",
+      "source": "JSE17 DEV - 17 Localization"
+    },
+    {
+      "id": "localization-009",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.time.LocalDate;\nimport java.time.format.DateTimeFormatter;\nimport java.util.Locale;\n\npublic class Pattern {\n    public static void main(String[] args) {\n        LocalDate d = LocalDate.of(2024, 3, 5);\n        System.out.println(d.format(DateTimeFormatter.ofPattern(\"dd MMM yyyy\", Locale.US)));\n        System.out.println(d.format(DateTimeFormatter.ofPattern(\"dd/mm/yyyy\")));\n    }\n}",
+      "options": [
+        "05 Mar 2024 followed by 05/03/2024",
+        "05 Mar 2024 followed by 05/00/2024",
+        "5 March 2024 followed by 05/03/2024",
+        "05 Mar 2024, then an exception is thrown at runtime",
+        "Compilation fails."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`MMM` produce il nome breve del mese nella lingua del `Locale` (`Mar` per `Locale.US`) e `dd` il giorno su due cifre: la prima riga è `05 Mar 2024`. Nel secondo pattern `mm` indica i minuti, non il mese: una `LocalDate` non ha campi orari, quindi `format()` lancia `UnsupportedTemporalTypeException` a runtime. Il pattern è valido sintatticamente, per cui il codice compila.",
+      "source": "JSE17 DEV - 17 Localization"
+    },
+    {
+      "id": "localization-010",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.text.MessageFormat;\n\npublic class Msg {\n    public static void main(String[] args) {\n        String msg = MessageFormat.format(\"{1} owes {0} euros to {2}, {1}.\", 25, \"Anna\", \"Marco\");\n        System.out.println(msg);\n    }\n}",
+      "options": [
+        "25 owes Anna euros to Marco, 25.",
+        "Anna owes 25 euros to Marco, {1}.",
+        "Anna owes 25 euros to Marco, Anna.",
+        "{1} owes {0} euros to {2}, {1}.",
+        "An IllegalArgumentException is thrown at runtime."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "In `MessageFormat` il numero tra parentesi graffe è l'indice dell'argomento: `{0}` è `25`, `{1}` è `Anna`, `{2}` è `Marco`. I segnaposto possono comparire in qualunque ordine e più volte, quindi entrambe le occorrenze di `{1}` diventano `Anna`.",
+      "source": "JSE17 DEV - 17 Localization"
+    },
+    {
+      "id": "localization-011",
+      "difficulty": 3,
+      "prompt": "The classpath contains exactly these bundles:\nShop.properties: a=baseA, b=baseB, c=baseC\nShop_en.properties: a=enA, b=enB\nShop_en_US.properties: a=usA\nShop_it.properties: d=itD\nWhat is the result?",
+      "code": "import java.util.*;\n\npublic class Catalog {\n    public static void main(String[] args) {\n        Locale.setDefault(Locale.ITALY);\n        ResourceBundle rb = ResourceBundle.getBundle(\"Shop\", Locale.US);\n        System.out.print(rb.getString(\"a\") + \" \" + rb.getString(\"b\") + \" \" + rb.getString(\"c\") + \" \");\n        System.out.print(rb.getString(\"d\"));\n    }\n}",
+      "options": [
+        "usA enB baseC itD",
+        "usA enB baseC null",
+        "usA, then a MissingResourceException is thrown",
+        "usA enB baseC, then a MissingResourceException is thrown",
+        "usA baseB baseC, then a MissingResourceException is thrown"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Viene scelto `Shop_en_US`, i cui genitori sono `Shop_en` e `Shop`. Ogni chiave viene cercata risalendo questa catena: `a` in `Shop_en_US` (`usA`), `b` in `Shop_en` (`enB`), `c` in `Shop` (`baseC`). La chiave `d` esiste solo in `Shop_it`, che appartiene al locale di default e non è un genitore del bundle scelto: `getString()` lancia `MissingResourceException` (non restituisce `null`).",
+      "source": "JSE17 DEV - 17 Localization"
+    },
+    {
+      "id": "localization-012",
+      "difficulty": 3,
+      "prompt": "The classpath contains the compiled class Res_en shown below and also a file Res_en.properties containing max=99 and name=Shop. What is the result of running Store?",
+      "code": "// Res_en.java\nimport java.util.ListResourceBundle;\n\npublic class Res_en extends ListResourceBundle {\n    @Override\n    protected Object[][] getContents() {\n        return new Object[][] { { \"max\", 3 }, { \"name\", \"Store\" } };\n    }\n}\n\n// Store.java\nimport java.util.*;\n\npublic class Store {\n    public static void main(String[] args) {\n        ResourceBundle rb = ResourceBundle.getBundle(\"Res\", Locale.ENGLISH);\n        Object max = rb.getObject(\"max\");\n        System.out.print(rb.getString(\"name\") + \" \" + max + \" \");\n        System.out.print(rb.getString(\"max\"));\n    }\n}",
+      "options": [
+        "Shop 99 99",
+        "Store 3 3",
+        "Shop 99, then a ClassCastException is thrown",
+        "Store 3, then a ClassCastException is thrown",
+        "Compilation fails."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Quando per lo stesso nome esistono sia una classe sia un file `.properties`, `getBundle()` usa la classe: si legge `Res_en`, un `ListResourceBundle`. `getObject(\"max\")` restituisce l'`Integer` 3 e `getString(\"name\")` la stringa `Store`. `getString(\"max\")` però esegue un cast a `String` di un `Integer` e lancia `ClassCastException`.",
+      "source": "JSE17 DEV - 17 Localization"
+    },
+    {
+      "id": "localization-013",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "import java.text.MessageFormat;\n\npublic class Quotes {\n    public static void main(String[] args) {\n        System.out.println(MessageFormat.format(\"{0}''s turn\", \"Ann\"));\n        System.out.println(MessageFormat.format(\"It's {0}'s turn\", \"Bob\"));\n    }\n}",
+      "options": [
+        "Ann's turn followed by It's Bob's turn",
+        "Ann''s turn followed by It's Bob's turn",
+        "Ann's turn followed by Its {0}s turn",
+        "Ann's turn followed by Its Bobs turn",
+        "Ann's turn, then an IllegalArgumentException is thrown"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "In `MessageFormat` l'apostrofo singolo apre e chiude una sezione letterale, mentre `''` produce un apostrofo: la prima riga è `Ann's turn`. Nella seconda stringa il primo apostrofo (in `It's`) apre una sezione quotata che si chiude all'apostrofo dopo `{0}`: il testo `s {0}` viene stampato letteralmente, senza sostituzione, e gli apostrofi spariscono. Risultato: `Its {0}s turn`.",
+      "source": "JSE17 DEV - 17 Localization"
+    },
+    {
+      "id": "localization-014",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "import java.text.NumberFormat;\nimport java.util.Locale;\n\npublic class Rounding {\n    public static void main(String[] args) {\n        NumberFormat i = NumberFormat.getIntegerInstance(Locale.US);\n        NumberFormat p = NumberFormat.getPercentInstance(Locale.US);\n        System.out.println(i.format(2.5) + \" \" + i.format(3.5) + \" \" + p.format(0.125));\n    }\n}",
+      "options": [
+        "3 4 13%",
+        "2 4 12%",
+        "2 3 12%",
+        "3 4 12.5%",
+        "2 4 0.125%"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "I formattatori di `NumberFormat` arrotondano con `RoundingMode.HALF_EVEN`: un valore esattamente a metà va verso la cifra pari, quindi 2.5 → `2` e 3.5 → `4`. Il formato percentuale moltiplica per 100 (0.125 → 12.5) e per default non mostra decimali: 12.5 diventa `12%` per la stessa regola.",
+      "source": "JSE17 DEV - 17 Localization"
+    },
+    {
+      "id": "localization-015",
+      "difficulty": 3,
+      "prompt": "Which statements are true? (Choose two.)",
+      "code": null,
+      "options": [
+        "`ResourceBundle.getString()` returns `null` when the key is not found.",
+        "`new Locale(\"ITA\", \"xyz\")` compiles and runs without throwing an exception.",
+        "`Locale.ITALIAN.equals(Locale.ITALY)` returns `true`.",
+        "`new Locale.Builder().setRegion(\"ITA\")` throws an `IllformedLocaleException`.",
+        "An existing `Locale` can be changed with `setLanguage()` and `setCountry()`."
+      ],
+      "correct": [
+        1,
+        3
+      ],
+      "explanation": "Il costruttore di `Locale` non valida gli argomenti (si limita a convertire la lingua in minuscolo e il paese in maiuscolo: `ita_XYZ`), mentre `Locale.Builder` controlla il formato e una regione di tre lettere lancia `IllformedLocaleException`. `getString()` su chiave mancante lancia `MissingResourceException`; `Locale.ITALIAN` (`it`) e `Locale.ITALY` (`it_IT`) sono diversi; `Locale` è immutabile e non ha setter.",
+      "source": "JSE17 DEV - 17 Localization"
+    }
+  ]
+}

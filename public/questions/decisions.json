@@ -1,0 +1,310 @@
+{
+  "topic": "decisions",
+  "keyPoints": [
+    {
+      "title": "Concatenazione e precedenza",
+      "body": "Il `+` viene valutato da sinistra a destra: dopo una `String` diventa concatenazione, quindi `\"Sum: \" + 3 + 4` dà \"Sum: 34\" mentre `3 + 4 + \" is sum\"` dà \"7 is sum\". `*`, `/` e `%` hanno precedenza su `+` e `-`: `\"P: \" + 3 * 4` dà \"P: 12\", mentre `\"D: \" + x - y` non compila. Le parentesi cambiano l'ordine di valutazione."
+    },
+    {
+      "title": "Pre e post incremento",
+      "body": "`++x` incrementa e poi usa il nuovo valore; `x++` usa il valore corrente e poi incrementa. Gli operandi vengono valutati da sinistra a destra, applicando i side effect in quell'ordine, e solo dopo si applicano le precedenze: con `a = 2`, `a++ + ++a * a--` vale 2 + 4 * 4 = 18. Una variabile `final` non può essere incrementata."
+    },
+    {
+      "title": "Assegnazioni dentro le espressioni",
+      "body": "Nell'espressione `k += (k = 5) * (k - 1)` il valore di sinistra di `k` (quello vecchio) viene letto prima di valutare la parte destra: equivale a `k = k + (...)`. Analogamente `n = (n = m) + n` usa il valore già riassegnato di `n`. Conviene sempre scomporre l'operatore composto e procedere da sinistra a destra."
+    },
+    {
+      "title": "Short-circuit e precedenza logica",
+      "body": "`&&` non valuta il secondo operando se il primo è false, `||` non lo valuta se il primo è true: gli eventuali `++` del secondo operando non vengono eseguiti. `^` (XOR) valuta sempre entrambi i lati ed è true se esattamente uno è true. La precedenza è `!`, poi `&&`, poi `||`."
+    },
+    {
+      "title": "La condizione dell'if",
+      "body": "La condizione di `if` deve essere `boolean` o `Boolean`: `if (1)` o `if (n)` con `n` int non compilano e `n == true` confronta tipi incompatibili. `if (flag = true)` invece compila se `flag` è boolean: assegna true e la condizione vale true. Non esiste la keyword `elseif`."
+    },
+    {
+      "title": "Tipi e costanti dello switch",
+      "body": "Il selettore può essere `byte`, `short`, `char`, `int`, i rispettivi wrapper, `String` o `enum`: non `long`, `float`, `double` o `boolean`. Le etichette dei case devono essere costanti a compile time compatibili col selettore: literal, variabili primitive o `String` `final` inizializzate con costanti, espressioni costanti. Variabili non final, wrapper `final` e chiamate a metodo non compilano; due case uguali non sono ammessi."
+    },
+    {
+      "title": "Fall-through e default",
+      "body": "Nello switch con `:` l'esecuzione continua nei case successivi finché non incontra `break` (fall-through). `default` può stare in qualsiasi posizione: viene scelto solo se nessun case corrisponde, ma da lì prosegue in fall-through nei case seguenti. Il confronto tra `String` è case-sensitive e un selettore `null` (String o wrapper) lancia `NullPointerException`."
+    },
+    {
+      "title": "Switch expression e yield",
+      "body": "Nella forma con `->` non c'è fall-through e si possono elencare più valori (`case 1, 7 ->`). Una switch expression deve restituire un valore per ogni possibile input (in pratica serve `default` per int e String), termina con `;` e nei blocchi `{ }` restituisce il valore con `yield`. `yield` è ammesso solo dentro una switch expression; anche la forma con `:` può essere un'espressione, e lì il fall-through resta attivo."
+    }
+  ],
+  "questions": [
+    {
+      "id": "decisions-001",
+      "difficulty": 1,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Concat {\n    public static void main(String[] args) {\n        int x = 3, y = 4;\n        System.out.print(\"Sum: \" + x + y + \" | \");\n        System.out.print(x + y + \" is sum | \");\n        System.out.print(\"Product: \" + x * y);\n    }\n}",
+      "options": [
+        "Sum: 7 | 7 is sum | Product: 12",
+        "Sum: 34 | 7 is sum | Product: 12",
+        "Sum: 34 | 34 is sum | Product: 12",
+        "Sum: 34 | 7 is sum | Product: 34"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Il `+` si valuta da sinistra a destra. Nella prima riga `\"Sum: \" + x` è già una `String`, quindi `y` viene concatenato: \"Sum: 34\". Nella seconda `x + y` sono due int e vengono sommati (7) prima di incontrare la stringa. Nella terza `*` ha precedenza su `+`, quindi prima si calcola 3 * 4 = 12 e poi si concatena.",
+      "source": "JSE17 DEV - 3 Decision Constructs"
+    },
+    {
+      "id": "decisions-002",
+      "difficulty": 1,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Flag {\n    public static void main(String[] args) {\n        boolean flag = false;\n        if (flag = true) System.out.print(\"A\");\n        else System.out.print(\"B\");\n        System.out.print(flag);\n    }\n}",
+      "options": [
+        "Bfalse",
+        "Afalse",
+        "Compilation fails.",
+        "Atrue"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`flag = true` è un'assegnazione, non un confronto: assegna true a `flag` e l'espressione vale true. Poiché il risultato è un `boolean`, il codice compila (con un int non compilerebbe). Viene eseguito il ramo `if` che stampa \"A\" e poi viene stampato il nuovo valore di `flag`, cioè true.",
+      "source": "JSE17 DEV - 3 Decision Constructs"
+    },
+    {
+      "id": "decisions-003",
+      "difficulty": 1,
+      "prompt": "Given `int n = 1; Boolean b = Boolean.TRUE;`, which conditions compile? (Choose two.)",
+      "code": null,
+      "options": [
+        "`if (n)`",
+        "`if (n == true)`",
+        "`if (b)`",
+        "`if (n = 1)`",
+        "`if (n == 1)`",
+        "`if (1)`"
+      ],
+      "correct": [
+        2,
+        4
+      ],
+      "explanation": "La condizione di un `if` deve essere un'espressione `boolean` o `Boolean` (che viene unboxato): `if (b)` e `if (n == 1)` compilano. In Java 0 e 1 non sono valori booleani: `if (n)` e `if (1)` non compilano, `n == true` confronta tipi incompatibili (int e boolean) e `n = 1` è un'assegnazione che produce un int.",
+      "source": "JSE17 DEV - 3 Decision Constructs"
+    },
+    {
+      "id": "decisions-004",
+      "difficulty": 2,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Tern {\n    public static void main(String[] args) {\n        int a = 5, b = 10;\n        String r = a > b ? \"A\" : a == 5 ? \"B\" : \"C\";\n        int c = b > a ? a++ : b++;\n        System.out.println(r + \" \" + a + \" \" + b + \" \" + c);\n    }\n}",
+      "options": [
+        "C 6 10 5",
+        "B 6 10 6",
+        "B 6 10 5",
+        "B 5 10 5",
+        "A 6 11 5"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Il ternario annidato si legge `a > b ? \"A\" : (a == 5 ? \"B\" : \"C\")`: `a > b` è false e `a == 5` è true, quindi `r` vale \"B\". Nel secondo ternario la condizione è true, quindi viene valutato solo `a++`: `c` riceve il valore prima dell'incremento (5) e `a` diventa 6. `b++` non viene mai eseguito, quindi `b` resta 10.",
+      "source": "JSE17 DEV - 3 Decision Constructs"
+    },
+    {
+      "id": "decisions-005",
+      "difficulty": 2,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Incr {\n    public static void main(String[] args) {\n        int a = 2;\n        int v = a++ + ++a * a--;\n        System.out.println(v + \" \" + a);\n    }\n}",
+      "options": [
+        "18 3",
+        "16 3",
+        "20 3",
+        "18 4",
+        "24 3"
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "Gli operandi si valutano da sinistra a destra: `a++` vale 2 (a diventa 3), `++a` vale 4 (a diventa 4), `a--` vale 4 (a diventa 3). Solo dopo si applicano le precedenze: 2 + (4 * 4) = 18. Il valore finale di `a` è 3.",
+      "source": "JSE17 DEV - 3 Decision Constructs"
+    },
+    {
+      "id": "decisions-006",
+      "difficulty": 3,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Order {\n    public static void main(String[] args) {\n        int k = 2;\n        k += (k = 5) * (k - 1);\n        int n = 10, m = 3;\n        n = (n = m) + n;\n        System.out.println(k + \" \" + n);\n    }\n}",
+      "options": [
+        "40 13",
+        "22 13",
+        "40 6",
+        "22 6"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`k += expr` equivale a `k = k + (expr)` e l'operando sinistro viene letto per primo, quando `k` vale ancora 2. Poi `(k = 5)` vale 5 e assegna 5 a `k`, quindi `(k - 1)` vale 4: k = 2 + 5 * 4 = 22. Nella seconda espressione `(n = m)` viene valutata per prima, vale 3 e cambia `n` in 3; il secondo operando legge il nuovo valore: n = 3 + 3 = 6.",
+      "source": "JSE17 DEV - 3 Decision Constructs"
+    },
+    {
+      "id": "decisions-007",
+      "difficulty": 2,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Short {\n    public static void main(String[] args) {\n        int i = 0, j = 0;\n        boolean r = (i++ > 0) && (j++ > 0);\n        boolean s = (++i > 0) || (j++ > 0);\n        boolean t = (i > 0) ^ (j++ == 0);\n        System.out.println(i + \" \" + j + \" \" + r + \" \" + s + \" \" + t);\n    }\n}",
+      "options": [
+        "1 1 false true false",
+        "2 2 false true true",
+        "2 1 false true false",
+        "2 1 false true true",
+        "1 0 false true true"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`i++ > 0` confronta 0 > 0 (false) e porta `i` a 1: con `&&` il secondo operando non viene valutato, `j` resta 0. `++i > 0` porta `i` a 2 ed è true: con `||` il secondo operando viene saltato. `^` non è short-circuit: valuta `i > 0` (true) e `j++ == 0` (0 == 0, true, poi `j` diventa 1); true ^ true = false.",
+      "source": "JSE17 DEV - 3 Decision Constructs"
+    },
+    {
+      "id": "decisions-008",
+      "difficulty": 2,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Fall {\n    public static void main(String[] args) {\n        int x = 7;\n        switch (x) {\n            default: System.out.print(\"D\");\n            case 1: System.out.print(\"1\");\n            case 2: System.out.print(\"2\"); break;\n            case 3: System.out.print(\"3\");\n        }\n    }\n}",
+      "options": [
+        "D",
+        "12",
+        "D123",
+        "D12"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Nessun case vale 7, quindi l'esecuzione salta a `default`, anche se è scritto per primo. Poiché `default` non ha `break`, avviene il fall-through: vengono eseguiti anche `case 1` e `case 2`, finché il `break` di `case 2` esce dallo switch. Stampa \"D12\".",
+      "source": "JSE17 DEV - 3 Decision Constructs"
+    },
+    {
+      "id": "decisions-009",
+      "difficulty": 3,
+      "prompt": "Which case labels compile when inserted, one at a time, at the indicated line? (Choose three.)",
+      "code": "int x = 5;\nfinal int A = 1;\nint b = 2;\nfinal Integer C = 3;\nswitch (x) {\n    // insert case label here\n        System.out.println(\"hit\"); break;\n    default: System.out.println(\"default\");\n}",
+      "options": [
+        "`case A:`",
+        "`case b:`",
+        "`case C:`",
+        "`case A + 4:`",
+        "`case \"5\":`",
+        "`case 'a':`"
+      ],
+      "correct": [
+        0,
+        3,
+        5
+      ],
+      "explanation": "Le etichette dei case devono essere espressioni costanti compatibili con il selettore `int`. `A` è una variabile primitiva `final` inizializzata con un literal, quindi è una costante, e anche `A + 4` è un'espressione costante. `'a'` è un literal char (97) assegnabile a int. `b` non è final, `C` è un oggetto `Integer` (un wrapper non è mai una costante a compile time, anche se final) e `\"5\"` è una `String`, incompatibile con un selettore int.",
+      "source": "JSE17 DEV - 3 Decision Constructs"
+    },
+    {
+      "id": "decisions-010",
+      "difficulty": 1,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Str {\n    public static void main(String[] args) {\n        String s = \"Hello\";\n        switch (s.toLowerCase()) {\n            case \"Hello\": System.out.print(\"A\");\n            case \"hello\": System.out.print(\"B\");\n            default: System.out.print(\"C\");\n        }\n    }\n}",
+      "options": [
+        "A",
+        "BC",
+        "ABC",
+        "C",
+        "B"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Il selettore può essere il risultato di una chiamata a metodo (sono i case che non possono contenere chiamate a metodo): vale \"hello\". Il confronto tra stringhe nello switch è case-sensitive, quindi \"Hello\" non corrisponde e si entra in `case \"hello\"`. Senza `break` il fall-through esegue anche `default`: stampa \"BC\".",
+      "source": "JSE17 DEV - 3 Decision Constructs"
+    },
+    {
+      "id": "decisions-011",
+      "difficulty": 3,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Yield {\n    public static void main(String[] args) {\n        int key = 2;\n        int x = switch (key) {\n            case 1: yield 10;\n            case 2: System.out.print(\"two \");\n            case 3: System.out.print(\"three \");\n            default: yield 30;\n        };\n        System.out.println(x);\n    }\n}",
+      "options": [
+        "30",
+        "two 30",
+        "two three 30",
+        "two three",
+        "Compilation fails."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Anche la forma tradizionale con `:` può essere usata come switch expression: il valore si restituisce con `yield` e l'istruzione termina con `;`. In questa forma il fall-through resta attivo: con `key` uguale a 2 si stampa \"two \", si prosegue in `case 3` (\"three \") e poi in `default`, dove `yield 30` assegna 30 a `x`. Il codice compila perché ogni percorso termina con uno `yield`.",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "decisions-012",
+      "difficulty": 3,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "public class Exh {\n    public static void main(String[] args) {\n        int day = 3;\n        String type = switch (day) {\n            case 1, 7 -> \"weekend\";\n            case 2, 3, 4, 5, 6 -> \"weekday\";\n        };\n        System.out.println(type);\n    }\n}",
+      "options": [
+        "weekday",
+        "weekend",
+        "null",
+        "An exception is thrown at runtime.",
+        "Compilation fails."
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "Una switch expression deve produrre un valore per ogni possibile valore del selettore. Con un selettore `int` i case elencati non coprono tutti i valori, quindi senza `default` il compilatore segnala `the switch expression does not cover all possible input values`. Il fatto che `day` valga 3 a runtime non conta. La sintassi con più valori separati da virgola invece è corretta.",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "decisions-013",
+      "difficulty": 2,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Arrow {\n    public static void main(String[] args) {\n        String code = \"B\";\n        int pts = switch (code) {\n            case \"A\" -> 4;\n            case \"B\", \"C\" -> {\n                System.out.print(\"ok \");\n                yield 3;\n            }\n            default -> 0;\n        };\n        System.out.println(pts);\n    }\n}",
+      "options": [
+        "ok 3",
+        "3",
+        "ok 3 0",
+        "ok 4",
+        "Compilation fails."
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "\"B\" corrisponde al case con due etichette `\"B\", \"C\"`. Il lato destro è un blocco: viene stampato \"ok \" e `yield 3` restituisce il valore della switch expression. Con la freccia non c'è fall-through, quindi `default` non viene eseguito. La switch expression è esaustiva grazie a `default` ed è chiusa dal `;`.",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "decisions-014",
+      "difficulty": 3,
+      "prompt": "Which statements about switch in Java 17 are true? (Choose two.)",
+      "code": null,
+      "options": [
+        "In the arrow form, execution falls through to the next case unless `break` is used.",
+        "A switch expression must produce a value for every possible selector value.",
+        "A `long` variable can be used as the selector of a switch statement.",
+        "`yield` can be used to exit a switch statement whose value is not used.",
+        "Switching on a `String` variable that is `null` throws a `NullPointerException`."
+      ],
+      "correct": [
+        1,
+        4
+      ],
+      "explanation": "Una switch expression deve essere esaustiva (con int o String serve `default`), altrimenti non compila. Un selettore `String`, wrapper o enum che vale `null` compila ma lancia `NullPointerException` a runtime. Nella forma con `->` non c'è mai fall-through. `long` (come `float`, `double` e `boolean`) non è un tipo ammesso per il selettore. `yield` si può usare solo dentro una switch expression: in uno switch statement il compilatore segnala `yield outside of switch expression`.",
+      "source": "JSE17 DEV - 21 newElements17"
+    },
+    {
+      "id": "decisions-015",
+      "difficulty": 2,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Prec {\n    public static void main(String[] args) {\n        int period = 60, rate = 100, yaw = 60;\n        boolean e1 = period > 50 || rate != 100 && yaw < 56;\n        boolean e2 = (period > 50 || rate != 100) && yaw < 56;\n        boolean e3 = !(yaw < 56) && period == 60;\n        System.out.println(e1 + \" \" + e2 + \" \" + e3);\n    }\n}",
+      "options": [
+        "true false true",
+        "true true true",
+        "false false true",
+        "true false false"
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "`&&` ha precedenza su `||`, quindi `e1` equivale a `period > 50 || (rate != 100 && yaw < 56)`: il primo operando è true e il risultato è true. In `e2` le parentesi forzano prima l'OR (true) e poi `true && yaw < 56`, cioè `true && false`, quindi false. In `e3` `!(60 < 56)` è true e `period == 60` è true: true.",
+      "source": "JSE17 DEV - 3 Decision Constructs"
+    }
+  ]
+}

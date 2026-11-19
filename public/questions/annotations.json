@@ -1,0 +1,312 @@
+{
+  "topic": "annotations",
+  "keyPoints": [
+    {
+      "title": "Cos'è un'annotazione",
+      "body": "Un'annotazione è un tipo speciale di interfaccia dichiarato con `@interface` e serve ad aggiungere metadati, letti dal compilatore, da strumenti esterni o a runtime via reflection. Va importata come qualsiasi altro tipo e NON può estendere altre annotazioni: non esiste una gerarchia di annotazioni."
+    },
+    {
+      "title": "Tipi ammessi per gli elementi",
+      "body": "Un elemento può essere solo di tipo primitivo, `String`, `Class`, enum, annotazione oppure un array monodimensionale di questi tipi. Non compilano `Integer`, `Object`, `Date`, `List<String>` o `int[][]`. Gli elementi non hanno parametri né clausola `throws`. Il valore di default deve essere una costante compatibile con il tipo e non può mai essere `null`; un elemento senza default è obbligatorio quando si usa l'annotazione."
+    },
+    {
+      "title": "La scorciatoia value e gli array",
+      "body": "Se l'elemento si chiama `value` e nell'uso è l'unico specificato, il nome si può omettere: `@Info(\"a\")`. Se si specificano anche altri elementi bisogna scrivere `value = ...`, e la forma `@Info(level = 2, \"a\")` non compila. Con elementi di tipo array si usano le graffe (`{\"a\", \"b\"}`, `{}` per zero valori), ma per un solo valore le graffe si possono omettere."
+    },
+    {
+      "title": "@Override e @FunctionalInterface",
+      "body": "Non sono obbligatorie, ma quando presenti il compilatore verifica la regola: `@Override` genera errore se il metodo non sovrascrive o implementa un metodo di un supertipo (ad esempio un overload come `equals(Sub s)` o un metodo `static`). `@FunctionalInterface` genera errore se l'interfaccia non ha esattamente un metodo astratto; i metodi `default`, `static` e i metodi pubblici di `Object` ridichiarati (come `equals`) non contano."
+    },
+    {
+      "title": "@Deprecated e @SuppressWarnings",
+      "body": "`@Deprecated` (da non confondere con il tag Javadoc `@deprecated`) ha gli elementi opzionali `since` (String) e `forRemoval` (boolean), ma nessun elemento `value`. `@SuppressWarnings` ha un unico elemento `String[] value`, ad esempio `\"deprecation\"` o `\"unchecked\"`, e agisce solo sull'elemento annotato: non elimina i warning generati in altri metodi."
+    },
+    {
+      "title": "@SafeVarargs",
+      "body": "Elimina il warning unchecked sui metodi con varargs di tipo generico. Si può applicare solo a costruttori e a metodi varargs che non possono essere sovrascritti: `static`, `final` o `private` (da Java 9). Su un metodo d'istanza non final e non private, su un metodo astratto o su un metodo senza varargs la compilazione fallisce."
+    },
+    {
+      "title": "@Retention e @Target",
+      "body": "`RetentionPolicy.SOURCE`: l'annotazione viene scartata dal compilatore (es. `@Override`, `@SuppressWarnings`). `CLASS` (il default se manca `@Retention`): finisce nel .class ma non è disponibile a runtime. `RUNTIME`: leggibile via reflection (`isAnnotationPresent`, `getAnnotation`). `@Target` limita gli elementi annotabili (`TYPE`, `FIELD`, `METHOD`, `PARAMETER`, `CONSTRUCTOR`, ...): usarla altrove è un errore di compilazione. `@Documented` include l'annotazione nel Javadoc."
+    },
+    {
+      "title": "@Inherited e @Repeatable",
+      "body": "`@Inherited` fa ereditare l'annotazione alle sottoclassi, ma funziona solo con le classi: le classi che implementano un'interfaccia annotata non la ereditano. `@Repeatable(Container.class)` permette di ripetere un'annotazione; il container deve avere un elemento `value()` di tipo array dell'annotazione ripetibile e una retention non più breve. Ripetere un'annotazione senza `@Repeatable` non compila. A runtime `getAnnotation` non vede le annotazioni ripetute (sono nel container), mentre `getAnnotationsByType` le restituisce tutte."
+    }
+  ],
+  "questions": [
+    {
+      "id": "annotations-001",
+      "difficulty": 1,
+      "prompt": "Which annotation instructs the compiler to report an error if the annotated method does not override or implement a method declared in a supertype?",
+      "code": null,
+      "options": [
+        "@FunctionalInterface",
+        "@Inherited",
+        "@Documented",
+        "@Override",
+        "@SafeVarargs"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`@Override` non è obbligatoria per sovrascrivere un metodo, ma se presente il compilatore verifica che il metodo sovrascriva davvero (o implementi) un metodo di un supertipo, altrimenti segnala un errore. `@FunctionalInterface` controlla le interfacce funzionali, `@Inherited` e `@Documented` sono meta-annotazioni, `@SafeVarargs` riguarda i metodi con varargs.",
+      "source": "JSE11 DEV - 13 Annotation"
+    },
+    {
+      "id": "annotations-002",
+      "difficulty": 1,
+      "prompt": "What is the result of compiling the following code?",
+      "code": "@interface Tag {\n    String name();\n}\n\n@Tag(\"x\")\nclass Item { }",
+      "options": [
+        "The code compiles successfully.",
+        "Compilation fails because the element must be written as name = \"x\".",
+        "Compilation fails because Tag must declare @Retention.",
+        "The code compiles, but the annotation is ignored at runtime."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "La forma abbreviata senza nome dell'elemento è ammessa solo per un elemento chiamato `value`. Qui l'elemento si chiama `name`, quindi va scritto `@Tag(name = \"x\")`; il compilatore segnala che `value` non esiste e che manca il valore obbligatorio di `name`. `@Retention` non è obbligatoria (in sua assenza vale `CLASS`).",
+      "source": "JSE11 DEV - 13 Annotation"
+    },
+    {
+      "id": "annotations-003",
+      "difficulty": 2,
+      "prompt": "Given enum Level { LOW, HIGH }, which element declarations are valid inside an annotation type declaration? (Choose three.)",
+      "code": null,
+      "options": [
+        "`Integer count();`",
+        "`String[] names();`",
+        "`Class<?> type();`",
+        "`Object data();`",
+        "`java.util.Date created();`",
+        "`Level level();`"
+      ],
+      "correct": [
+        1,
+        2,
+        5
+      ],
+      "explanation": "Gli elementi di un'annotazione possono essere solo di tipo primitivo, `String`, `Class` (anche parametrizzato come `Class<?>`), enum, annotazione o array monodimensionali di questi tipi: `String[]`, `Class<?>` e l'enum `Level` sono validi. I wrapper come `Integer`, `Object` e `Date` non sono ammessi e il compilatore segnala un tipo non valido per l'elemento.",
+      "source": "JSE11 DEV - 13 Annotation"
+    },
+    {
+      "id": "annotations-004",
+      "difficulty": 2,
+      "prompt": "Which annotation element declaration compiles?",
+      "code": null,
+      "options": [
+        "`String value() default null;`",
+        "`int count(int x);`",
+        "`String[] tags() default {};`",
+        "`String name() throws Exception;`",
+        "`int size() default 3L;`"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Un array vuoto `{}` è un valore di default valido per un elemento di tipo array. `null` non è mai ammesso come valore di un elemento, nemmeno come default. Gli elementi non possono dichiarare parametri né una clausola `throws`. `3L` è un `long` e non può essere assegnato implicitamente a un `int` (conversione con perdita).",
+      "source": "JSE11 DEV - 13 Annotation"
+    },
+    {
+      "id": "annotations-005",
+      "difficulty": 2,
+      "prompt": "What is the result of compiling the following interface?",
+      "code": "@FunctionalInterface\ninterface Checker {\n    boolean check(String s);\n    boolean equals(Object o);\n    default Checker negate() { return s -> !check(s); }\n    static Checker any() { return s -> true; }\n}",
+      "options": [
+        "The code compiles successfully.",
+        "Compilation fails because equals(Object) is a second abstract method.",
+        "Compilation fails because a functional interface cannot declare default methods.",
+        "Compilation fails because a functional interface cannot declare static methods."
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "Un'interfaccia funzionale deve avere esattamente un metodo astratto. `equals(Object)` ridichiara un metodo pubblico di `Object`, che ogni implementazione eredita già, quindi non viene conteggiato. I metodi `default` e `static` hanno un corpo e non sono astratti. L'unico metodo astratto è `check`, perciò `@FunctionalInterface` è soddisfatta.",
+      "source": "JSE11 DEV - 13 Annotation"
+    },
+    {
+      "id": "annotations-006",
+      "difficulty": 3,
+      "prompt": "Given the following classes, which lines cause a compilation error? (Choose two.)",
+      "code": "class Base {\n    static void a() { }\n    void b() { }\n    public String toString() { return \"B\"; }\n}\n\nclass Sub extends Base {\n    @Override static void a() { }                            // line 1\n    @Override void b() { }                                   // line 2\n    @Override public boolean equals(Sub s) { return true; }  // line 3\n    @Override public String toString() { return \"S\"; }       // line 4\n}",
+      "options": [
+        "line 1",
+        "line 2",
+        "line 3",
+        "line 4"
+      ],
+      "correct": [
+        0,
+        2
+      ],
+      "explanation": "I metodi statici non vengono sovrascritti ma nascosti (hiding), quindi `@Override` su un metodo `static` è un errore. `equals(Sub s)` non sovrascrive `equals(Object)` di `Object` perché il tipo del parametro è diverso: è un overload e `@Override` provoca errore. Le righe 2 e 4 sono override corretti.",
+      "source": "JSE11 DEV - 13 Annotation"
+    },
+    {
+      "id": "annotations-007",
+      "difficulty": 3,
+      "prompt": "What is the output of the following program?",
+      "code": "import java.lang.annotation.*;\n\n@Repeatable(Roles.class)\n@Retention(RetentionPolicy.RUNTIME)\n@interface Role { String value(); }\n\n@Retention(RetentionPolicy.RUNTIME)\n@interface Roles { Role[] value(); }\n\n@Role(\"admin\") @Role(\"user\")\npublic class U {\n    public static void main(String[] args) {\n        System.out.println(U.class.getAnnotationsByType(Role.class).length + \" \"\n            + U.class.getAnnotation(Role.class) + \" \"\n            + (U.class.getAnnotation(Roles.class) != null));\n    }\n}",
+      "options": [
+        "2 @Role(\"admin\") false",
+        "1 @Role(\"admin\") true",
+        "2 @Role(\"admin\") true",
+        "Compilation fails.",
+        "2 null true"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "Quando un'annotazione ripetibile compare più volte, il compilatore la racchiude automaticamente nel container `@Roles`. Per questo `getAnnotation(Roles.class)` trova il container, mentre `getAnnotation(Role.class)` restituisce `null`: sulla classe non c'è un `@Role` diretto. `getAnnotationsByType(Role.class)`, introdotto in Java 8, guarda anche dentro il container e restituisce entrambe le annotazioni. Output: `2 null true`.",
+      "source": "JSE11 DEV - 13 Annotation"
+    },
+    {
+      "id": "annotations-008",
+      "difficulty": 3,
+      "prompt": "What is the output of the following program?",
+      "code": "import java.lang.annotation.*;\n\n@interface Audit { }\n\n@Retention(RetentionPolicy.RUNTIME)\n@interface Track { }\n\n@Audit @Track\nclass Service { }\n\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println(Service.class.isAnnotationPresent(Audit.class) + \" \"\n            + Service.class.isAnnotationPresent(Track.class));\n    }\n}",
+      "options": [
+        "true true",
+        "false true",
+        "true false",
+        "false false",
+        "Compilation fails because Audit does not declare @Retention."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Se `@Retention` manca, la politica predefinita è `RetentionPolicy.CLASS`: l'annotazione viene scritta nel file .class ma non è disponibile via reflection a runtime, quindi `isAnnotationPresent(Audit.class)` restituisce `false`. `Track` ha retention `RUNTIME` ed è visibile. `@Retention` non è obbligatoria.",
+      "source": "JSE11 DEV - 13 Annotation"
+    },
+    {
+      "id": "annotations-009",
+      "difficulty": 2,
+      "prompt": "What is the result of compiling the following code?",
+      "code": "import java.lang.annotation.*;\n\n@Target(ElementType.METHOD)\n@interface Logged { }\n\nclass Account {\n    @Logged private int balance;          // line 1\n    @Logged void deposit(int x) {         // line 2\n        balance += x;\n    }\n}",
+      "options": [
+        "The code compiles successfully.",
+        "Compilation fails at line 2 only.",
+        "Compilation fails at line 1 only.",
+        "Compilation fails because @Target requires an array value such as {ElementType.METHOD}."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`@Target(ElementType.METHOD)` limita l'uso di `@Logged` ai metodi: applicarla al campo `balance` provoca l'errore \"annotation interface not applicable to this kind of declaration\". L'uso sul metodo `deposit` è corretto. L'elemento `value` di `@Target` è un array, ma con un solo valore le graffe si possono omettere.",
+      "source": "JSE11 DEV - 13 Annotation"
+    },
+    {
+      "id": "annotations-010",
+      "difficulty": 3,
+      "prompt": "What is the result of compiling the following code?",
+      "code": "import java.lang.annotation.*;\n\n@Repeatable(Roles.class)\n@Retention(RetentionPolicy.RUNTIME)\n@interface Role { String value(); }\n\n@interface Roles { Role[] value(); }\n\n@Role(\"admin\") @Role(\"user\")\nclass User { }",
+      "options": [
+        "The code compiles successfully.",
+        "Compilation fails because Roles must declare an element named roles.",
+        "Compilation fails because an annotation cannot be repeated on a class.",
+        "Compilation fails because the retention of Roles is shorter than the retention of Role.",
+        "The code compiles, but only the first @Role is stored in the class file."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`Roles` non dichiara `@Retention`, quindi ha la retention predefinita `CLASS`, più breve di `RUNTIME` usata da `Role`. Il compilatore richiede che il container abbia una retention almeno pari a quella dell'annotazione ripetibile e segnala l'errore sulla dichiarazione `@Repeatable(Roles.class)`. Il container deve avere un elemento `value()` di tipo array, come in questo caso.",
+      "source": "JSE11 DEV - 13 Annotation"
+    },
+    {
+      "id": "annotations-011",
+      "difficulty": 2,
+      "prompt": "In which of the following method declarations, each preceded by @SafeVarargs inside an abstract class, does the annotation compile? (Choose three.)",
+      "code": null,
+      "options": [
+        "`static <T> void a(T... x) { }`",
+        "`public <T> void c(T... x) { }`",
+        "`final <T> void b(T... x) { }`",
+        "`<T> void d(java.util.List<T> x) { }`",
+        "`abstract <T> void e(T... x);`",
+        "`private <T> void f(T... x) { }`"
+      ],
+      "correct": [
+        0,
+        2,
+        5
+      ],
+      "explanation": "`@SafeVarargs` si applica solo a costruttori e a metodi con varargs che non possono essere sovrascritti: `static`, `final` e, da Java 9, `private`. Su un metodo d'istanza né final né private (compreso un metodo `abstract`) il compilatore segnala un'annotazione non valida, e lo stesso accade su un metodo che non ha varargs.",
+      "source": "JSE11 DEV - 13 Annotation"
+    },
+    {
+      "id": "annotations-012",
+      "difficulty": 1,
+      "prompt": "Lib.old() is annotated with @Deprecated. Which annotation, placed on the use() method, prevents the compiler from reporting a warning for the call?",
+      "code": "class Lib {\n    @Deprecated static void old() { }\n}\n\nclass Client {\n    // annotation here\n    void use() { Lib.old(); }\n}",
+      "options": [
+        "@SuppressWarnings(\"deprecation\")",
+        "@SuppressWarnings(\"unchecked\")",
+        "@Deprecated",
+        "@SafeVarargs"
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "La chiamata a un metodo deprecato genera un warning della categoria `deprecation`, che si sopprime con `@SuppressWarnings(\"deprecation\")`. La categoria `unchecked` riguarda le operazioni non controllate sui generics (ad esempio i raw type). `@SuppressWarnings` vale solo per l'elemento annotato: un altro metodo che chiama `Lib.old()` continuerebbe a generare il warning.",
+      "source": "JSE11 DEV - 13 Annotation"
+    },
+    {
+      "id": "annotations-013",
+      "difficulty": 1,
+      "prompt": "Which use of the @Deprecated annotation compiles?",
+      "code": null,
+      "options": [
+        "`@Deprecated(\"use newMethod\")`",
+        "`@Deprecated(forRemoval = \"yes\")`",
+        "`@Deprecated(since = \"17\", forRemoval = true)`",
+        "`@Deprecated(reason = \"obsolete\")`"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Da Java 9 `@Deprecated` ha due elementi opzionali: `since` (String) e `forRemoval` (boolean). Non ha un elemento `value`, quindi la forma abbreviata `@Deprecated(\"...\")` non compila; `forRemoval` richiede un boolean e `reason` non esiste. Il motivo della deprecazione si documenta con il tag Javadoc `@deprecated`.",
+      "source": "JSE11 DEV - 13 Annotation"
+    },
+    {
+      "id": "annotations-014",
+      "difficulty": 2,
+      "prompt": "Given the annotation below, which usages fail to compile? (Choose two.)",
+      "code": "@interface Info {\n    String[] value();\n    int level() default 1;\n}",
+      "options": [
+        "`@Info(\"a\")`",
+        "`@Info(level = 2, \"a\")`",
+        "`@Info({\"a\", \"b\"})`",
+        "`@Info(value = \"a\", level = 2)`",
+        "`@Info(level = 2)`",
+        "`@Info({})`"
+      ],
+      "correct": [
+        1,
+        4
+      ],
+      "explanation": "Il nome `value` si può omettere solo se è l'unico elemento indicato; insieme a `level` bisogna scrivere `value = ...`, quindi `@Info(level = 2, \"a\")` non compila. `@Info(level = 2)` non compila perché `value` non ha un default ed è obbligatorio. Per un elemento array, un singolo valore può essere scritto senza graffe, e `{}` rappresenta un array vuoto valido.",
+      "source": "JSE11 DEV - 13 Annotation"
+    },
+    {
+      "id": "annotations-015",
+      "difficulty": 3,
+      "prompt": "What is the output of the following program?",
+      "code": "import java.lang.annotation.*;\n\n@Inherited\n@Retention(RetentionPolicy.RUNTIME)\n@interface Marker { }\n\n@Marker interface Shape { }\n@Marker class Base { }\nclass Circle extends Base { }\nclass Square implements Shape { }\n\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println(Circle.class.isAnnotationPresent(Marker.class) + \" \"\n            + Square.class.isAnnotationPresent(Marker.class));\n    }\n}",
+      "options": [
+        "true true",
+        "false false",
+        "false true",
+        "true false",
+        "Compilation fails because @Inherited cannot be used on an annotation applied to an interface."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`@Inherited` fa ereditare un'annotazione di classe alle sottoclassi: `Circle` estende `Base`, quindi `Marker` risulta presente. Il meccanismo però funziona solo lungo la gerarchia delle classi: le annotazioni poste su un'interfaccia non vengono ereditate da chi la implementa, perciò per `Square` il risultato è `false`. Il codice compila: `@Marker` può essere applicata anche a un'interfaccia, semplicemente non viene ereditata.",
+      "source": "JSE11 DEV - 13 Annotation"
+    }
+  ]
+}

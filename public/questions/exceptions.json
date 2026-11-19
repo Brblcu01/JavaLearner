@@ -1,0 +1,311 @@
+{
+  "topic": "exceptions",
+  "keyPoints": [
+    {
+      "title": "Checked vs unchecked",
+      "body": "Sono checked `Throwable`, `Exception` e tutte le sue sottoclassi tranne la gerarchia di `RuntimeException`: per loro vale la regola \"gestisci o dichiara\" (try/catch oppure `throws`). Sono unchecked `RuntimeException`, `Error` e tutte le loro sottoclassi: il compilatore non impone nulla, si possono gestire, dichiarare o ignorare."
+    },
+    {
+      "title": "Ordine dei catch e catch impossibili",
+      "body": "I blocchi catch vanno scritti dal più specifico al più generico: un catch di una sottoclasse dopo quello della superclasse non compila (\"has already been caught\"). Non compila nemmeno un catch di una checked exception che il blocco try non può sollevare, mentre `catch (Exception e)`, `catch (Throwable t)` e i catch di unchecked sono sempre ammessi."
+    },
+    {
+      "title": "Regole del multi-catch",
+      "body": "In `catch (A | B e)` i tipi non possono essere in relazione di ereditarietà (in qualunque ordine), altrimenti errore di compilazione. Il parametro di un multi-catch è implicitamente final e non può essere riassegnato; in un catch con un solo tipo invece la riassegnazione è lecita."
+    },
+    {
+      "title": "finally: quando gira e cosa maschera",
+      "body": "Il blocco finally viene eseguito prima di qualunque `return`, `throw`, `break` o `continue` del try/catch. Se il finally contiene a sua volta un `return` o un `throw`, questo maschera l'uscita del try/catch (anche un'eccezione in volo). Non viene eseguito se si invoca `System.exit()`. Un try semplice senza catch richiede obbligatoriamente il finally."
+    },
+    {
+      "title": "Un catch non salta in un altro catch",
+      "body": "Un'eccezione sollevata dentro un blocco catch non viene intercettata dai catch successivi dello stesso try: viene eseguito il finally e poi l'eccezione si propaga al chiamante (fino al main e alla JVM, che stampa lo stack trace)."
+    },
+    {
+      "title": "try-with-resources",
+      "body": "Le risorse devono implementare `AutoCloseable` e vengono chiuse automaticamente, in ordine inverso rispetto alla dichiarazione, in un finally implicito. Le variabili dichiarate nell'header hanno lo scope del solo blocco try e sono implicitamente final; da Java 9 si può usare `try (r)` solo se `r` è final o effectively final. Le eccezioni dichiarate da `close()` vanno gestite o dichiarate. Il try-with-resources può stare anche da solo, senza catch né finally."
+    },
+    {
+      "title": "Eccezioni soppresse",
+      "body": "Se il corpo del try solleva un'eccezione e anche `close()` ne solleva una, l'eccezione principale resta quella del try; quelle della chiusura vengono aggiunte come soppresse e si recuperano con `getSuppressed()`. Un eventuale finally esplicito viene eseguito dopo la chiusura delle risorse e dopo il catch."
+    },
+    {
+      "title": "Override, throws e metodi di Throwable",
+      "body": "Un metodo che fa override non può dichiarare checked exception nuove o più generiche di quelle del metodo sovrascritto; può invece non dichiararne nessuna, dichiararne di più specifiche o aggiungere unchecked. Ricorda inoltre: `getMessage()` restituisce null se il messaggio manca, mentre `toString()` in quel caso stampa solo il nome qualificato della classe, senza \": null\"."
+    }
+  ],
+  "questions": [
+    {
+      "id": "exceptions-001",
+      "difficulty": 1,
+      "prompt": "Which two of the following are unchecked exceptions? (Choose two.)",
+      "code": null,
+      "options": [
+        "java.io.IOException",
+        "java.lang.NumberFormatException",
+        "java.io.FileNotFoundException",
+        "java.sql.SQLException",
+        "java.lang.StackOverflowError",
+        "java.lang.Exception"
+      ],
+      "correct": [
+        1,
+        4
+      ],
+      "explanation": "Sono unchecked tutte le sottoclassi di `RuntimeException` e di `Error`. `NumberFormatException` estende `IllegalArgumentException`, che estende `RuntimeException`; `StackOverflowError` è un `Error`. `IOException`, `FileNotFoundException` e `SQLException` sono checked (estendono `Exception` ma non `RuntimeException`), così come `Exception` stessa.",
+      "source": "JSE17 DEV - 9 Exception"
+    },
+    {
+      "id": "exceptions-002",
+      "difficulty": 1,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "public class Test {\n    public static void main(String[] args) {\n        try {\n            int n = Integer.parseInt(\"12a\");\n            System.out.println(n);\n        } catch (IllegalArgumentException | NumberFormatException e) {\n            System.out.println(\"invalid\");\n        }\n    }\n}",
+      "options": [
+        "Compilation fails.",
+        "invalid",
+        "12",
+        "A NumberFormatException is thrown at runtime."
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "In un multi-catch i tipi non possono essere legati da ereditarietà: `NumberFormatException` è sottoclasse di `IllegalArgumentException`, quindi il compilatore segnala \"Alternatives in a multi-catch statement cannot be related by subclassing\". Se il catch fosse solo `IllegalArgumentException`, il codice stamperebbe `invalid`.",
+      "source": "JSE17 DEV - 9 Exception"
+    },
+    {
+      "id": "exceptions-003",
+      "difficulty": 2,
+      "prompt": "Given the following code, which statement is true?",
+      "code": "import java.io.*;\n\npublic class Test {\n    static void load(String s) throws IOException {\n        if (s.isEmpty()) throw new IOException(\"empty\");\n    }\n    public static void main(String[] args) {\n        try {\n            load(\"\");\n        } catch (IOException e) {\n            e = new FileNotFoundException();       // line 1\n        }\n        try {\n            load(\"\");\n        } catch (IOException | IllegalStateException e) {\n            e = new IllegalStateException();       // line 2\n        }\n    }\n}",
+      "options": [
+        "The code compiles and runs without printing anything.",
+        "Compilation fails only because of line 1.",
+        "Compilation fails only because of line 2.",
+        "Compilation fails because of both line 1 and line 2.",
+        "The code compiles but an exception is thrown at runtime."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Il parametro di un multi-catch è implicitamente final: la riassegnazione alla riga 2 produce \"multi-catch parameter e may not be assigned\". Alla riga 1 invece il catch ha un solo tipo, quindi `e` è una normale variabile riassegnabile con un sottotipo compatibile (`FileNotFoundException` è una `IOException`). `IOException` e `IllegalStateException` non sono in relazione di ereditarietà, quindi il multi-catch in sé è valido.",
+      "source": "JSE17 DEV - 9 Exception"
+    },
+    {
+      "id": "exceptions-004",
+      "difficulty": 2,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "public class Test {\n    static int test() {\n        try {\n            throw new IllegalStateException(\"A\");\n        } catch (IllegalStateException e) {\n            System.out.print(\"catch \");\n            throw new RuntimeException(\"B\");\n        } finally {\n            System.out.print(\"finally \");\n            return 3;\n        }\n    }\n    public static void main(String[] args) {\n        System.out.println(test());\n    }\n}",
+      "options": [
+        "catch finally 3",
+        "catch finally followed by a RuntimeException stack trace",
+        "catch 3",
+        "Compilation fails because the method has no return statement after the try.",
+        "finally 3"
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "L'eccezione `IllegalStateException` viene catturata e stampa `catch `; il catch solleva una `RuntimeException`, ma prima che esca dal metodo viene eseguito il finally, che stampa `finally ` ed esegue `return 3`. Il return nel finally maschera l'eccezione in volo, che va persa: il metodo restituisce 3 normalmente. Il codice compila perché ogni percorso termina con il return del finally.",
+      "source": "JSE17 DEV - 9 Exception"
+    },
+    {
+      "id": "exceptions-005",
+      "difficulty": 3,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "public class Test {\n    public static void main(String[] args) {\n        try {\n            System.out.print(\"A\");\n            throw new IllegalArgumentException();\n        } catch (IllegalArgumentException e) {\n            System.out.print(\"B\");\n            throw new NullPointerException();\n        } catch (RuntimeException e) {\n            System.out.print(\"C\");\n        } finally {\n            System.out.print(\"D\");\n        }\n        System.out.print(\"E\");\n    }\n}",
+      "options": [
+        "ABCDE",
+        "ABCD",
+        "ABDE",
+        "ABD followed by a NullPointerException stack trace",
+        "Compilation fails."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Non si salta da un catch all'altro: la `NullPointerException` sollevata nel primo catch non viene intercettata dal `catch (RuntimeException e)` dello stesso try. Viene eseguito il finally (`D`), poi l'eccezione si propaga fuori dal main e la JVM stampa lo stack trace; `E` non viene mai stampata. L'ordine dei catch (prima la sottoclasse, poi `RuntimeException`) è corretto, quindi il codice compila.",
+      "source": "JSE17 DEV - 9 Exception"
+    },
+    {
+      "id": "exceptions-006",
+      "difficulty": 3,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "class Res implements AutoCloseable {\n    private final String name;\n    Res(String name) {\n        this.name = name;\n        System.out.print(\"open\" + name + \" \");\n    }\n    public void close() throws Exception {\n        System.out.print(\"close\" + name + \" \");\n        throw new Exception(\"close\" + name);\n    }\n}\npublic class Test {\n    public static void main(String[] args) {\n        try (Res a = new Res(\"A\"); Res b = new Res(\"B\")) {\n            throw new IllegalStateException(\"body\");\n        } catch (Exception e) {\n            System.out.print(e.getMessage() + \" \" + e.getSuppressed().length);\n        } finally {\n            System.out.print(\" fin\");\n        }\n    }\n}",
+      "options": [
+        "openA openB closeA closeB body 2 fin",
+        "openA openB closeB closeA body 2 fin",
+        "openA openB closeB closeA closeB 1 fin",
+        "openA openB closeB closeA body 0 fin"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Le risorse vengono aperte nell'ordine di dichiarazione e chiuse in ordine inverso (`closeB` poi `closeA`) prima di entrare nel catch. L'eccezione principale resta quella del corpo del try (`body`); le due eccezioni lanciate dai `close()` vengono aggiunte come soppresse, quindi `getSuppressed().length` vale 2. Il finally esplicito viene eseguito per ultimo.",
+      "source": "JSE17 DEV - 9 Exception"
+    },
+    {
+      "id": "exceptions-007",
+      "difficulty": 2,
+      "prompt": "Which two statements about try-with-resources are true? (Choose two.)",
+      "code": null,
+      "options": [
+        "Resources are closed in the reverse order in which they are declared.",
+        "A try-with-resources statement must be followed by at least one catch or finally block.",
+        "Only classes that implement java.io.Closeable can be declared as resources.",
+        "A resource declared in the try header can be referenced inside an explicit finally block.",
+        "An explicit finally block runs after the resources have been closed."
+      ],
+      "correct": [
+        0,
+        4
+      ],
+      "explanation": "Le risorse si chiudono in ordine inverso rispetto alla dichiarazione e il finally esplicito viene eseguito dopo il finally implicito che invoca `close()`. Il try-with-resources può stare da solo, senza catch né finally. Basta implementare `java.lang.AutoCloseable` (`Closeable` ne è solo una sottointerfaccia). Le variabili dichiarate nell'header hanno lo scope del blocco try e non sono visibili nel finally.",
+      "source": "JSE17 DEV - 9 Exception"
+    },
+    {
+      "id": "exceptions-008",
+      "difficulty": 2,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.io.*;\n\npublic class Test {\n    public static void main(String[] args) throws IOException {\n        StringReader r = new StringReader(\"abc\");\n        try (r) {\n            System.out.print((char) r.read());\n        }\n        r = new StringReader(\"xyz\");\n        System.out.println(\"end\");\n    }\n}",
+      "options": [
+        "aend",
+        "a followed by an IOException stack trace",
+        "abcend",
+        "end",
+        "Compilation fails."
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "Da Java 9 si può indicare nell'header del try una risorsa dichiarata fuori (`try (r)`), ma solo se è final o effectively final. Qui `r` viene riassegnata dopo il try, quindi non è effectively final e il compilatore segnala \"variable r used as a try-with-resources resource neither final nor effectively final\". Senza la riassegnazione il codice stamperebbe `aend`.",
+      "source": "JSE17 DEV - 9 Exception"
+    },
+    {
+      "id": "exceptions-009",
+      "difficulty": 1,
+      "prompt": "What is the result of compiling the following code?",
+      "code": "import java.io.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        try {\n            new FileReader(\"data.txt\").close();\n        } catch (Exception e) {\n            System.out.println(\"generic\");\n        } catch (FileNotFoundException e) {\n            System.out.println(\"not found\");\n        }\n    }\n}",
+      "options": [
+        "It compiles and prints generic if the file does not exist.",
+        "It compiles and prints not found if the file does not exist.",
+        "Compilation fails.",
+        "It compiles but nothing is printed if the file does not exist."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "I catch vanno ordinati dal più specifico al più generico. `catch (Exception e)` intercetta già anche `FileNotFoundException`, quindi il secondo catch è irraggiungibile e il compilatore segnala \"exception FileNotFoundException has already been caught\". Invertendo i due catch il codice compilerebbe e, con file inesistente, stamperebbe `not found`.",
+      "source": "JSE17 DEV - 9 Exception"
+    },
+    {
+      "id": "exceptions-010",
+      "difficulty": 3,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "class Conn implements AutoCloseable {\n    public void close() throws Exception {\n        System.out.print(\"close \");\n    }\n}\npublic class Test {\n    public static void main(String[] args) {\n        try (Conn c = new Conn()) {\n            System.out.print(\"body \");\n        } catch (IllegalStateException e) {\n            System.out.print(\"ise \");\n        }\n        System.out.println(\"end\");\n    }\n}",
+      "options": [
+        "body close end",
+        "Compilation fails.",
+        "body end",
+        "body close followed by an Exception stack trace",
+        "close body end"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Il `close()` di `Conn` dichiara `throws Exception` (checked) e viene invocato implicitamente alla fine del try-with-resources. Questa eccezione va gestita o dichiarata: il catch di `IllegalStateException` (unchecked) non basta e il main non dichiara `throws`, quindi il compilatore segnala \"unreported exception Exception\" sulla chiamata implicita a `close()`. Il fatto che `close()` in realtà non lanci nulla non conta: conta la dichiarazione.",
+      "source": "JSE17 DEV - 9 Exception"
+    },
+    {
+      "id": "exceptions-011",
+      "difficulty": 3,
+      "prompt": "Which three exception types, inserted in place of the comment, allow the code to compile? (Choose three.)",
+      "code": "import java.io.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        try {\n            System.out.println(\"hello\");\n        } catch (/* INSERT TYPE HERE */ e) {\n            System.out.println(\"caught\");\n        }\n    }\n}",
+      "options": [
+        "IOException",
+        "Exception",
+        "FileNotFoundException",
+        "Error",
+        "java.sql.SQLException",
+        "Throwable"
+      ],
+      "correct": [
+        1,
+        3,
+        5
+      ],
+      "explanation": "Il compilatore rifiuta il catch di una checked exception che il corpo del try non può sollevare (\"exception ... is never thrown in body of corresponding try statement\"): è il caso di `IOException`, `FileNotFoundException` e `SQLException`. `Exception` e `Throwable` sono sempre ammessi perché includono anche le unchecked, ed `Error` è unchecked, quindi anche il suo catch compila.",
+      "source": "JSE17 DEV - 9 Exception"
+    },
+    {
+      "id": "exceptions-012",
+      "difficulty": 2,
+      "prompt": "Which two method declarations, inserted independently in MyTask, compile? (Choose two.)",
+      "code": "import java.io.*;\n\nclass Task {\n    void process() throws IOException { }\n}\nclass MyTask extends Task {\n    // INSERT METHOD HERE\n}",
+      "options": [
+        "void process() throws Exception { }",
+        "void process() { }",
+        "public void process() throws Throwable { }",
+        "void process() throws IOException, java.sql.SQLException { }",
+        "void process() throws FileNotFoundException, IllegalArgumentException { }"
+      ],
+      "correct": [
+        1,
+        4
+      ],
+      "explanation": "Nell'override non si possono dichiarare checked exception nuove o più generiche: `Exception`, `Throwable` e `SQLException` violano la regola. È invece lecito non dichiarare nulla, dichiarare un sottotipo (`FileNotFoundException` è una `IOException`) e aggiungere unchecked come `IllegalArgumentException`. Allargare la visibilità a public sarebbe ammesso, ma l'opzione con `Throwable` fallisce comunque per la clausola throws.",
+      "source": "JSE17 DEV - 9 Exception"
+    },
+    {
+      "id": "exceptions-013",
+      "difficulty": 1,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "class AppException extends Exception {\n    AppException(String msg) { super(msg); }\n}\npublic class Test {\n    static void check(int x) {\n        if (x < 0) throw new AppException(\"negative\");\n        System.out.println(\"ok \" + x);\n    }\n    public static void main(String[] args) {\n        try {\n            check(-1);\n        } catch (AppException e) {\n            System.out.println(e.getMessage());\n        }\n    }\n}",
+      "options": [
+        "Compilation fails.",
+        "negative",
+        "ok -1",
+        "An AppException stack trace is printed."
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "`AppException` estende `Exception`, quindi è checked ed è soggetta a \"gestisci o dichiara\". Il metodo `check` la solleva senza dichiararla con `throws AppException`, quindi non compila; di conseguenza anche il catch nel main viene segnalato, perché il try non può sollevare quella checked exception. Se `AppException` estendesse `RuntimeException` il codice stamperebbe `negative`.",
+      "source": "JSE17 DEV - 9 Exception"
+    },
+    {
+      "id": "exceptions-014",
+      "difficulty": 2,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "public class Test {\n    public static void main(String[] args) {\n        Exception e1 = new IllegalStateException();\n        Exception e2 = new Exception(\"wrapper\", e1);\n        System.out.println(e1.getMessage() + \" \" + e1 + \" \"\n            + e2.getCause().getClass().getSimpleName());\n    }\n}",
+      "options": [
+        "null java.lang.IllegalStateException: null IllegalStateException",
+        "null java.lang.IllegalStateException IllegalStateException",
+        "wrapper java.lang.IllegalStateException Exception",
+        "null IllegalStateException Exception"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`e1` è creata senza messaggio, quindi `getMessage()` restituisce null. `toString()` stampa il nome fully qualified della classe seguito da \": messaggio\" solo se il messaggio esiste: in sua assenza non stampa \": null\". Il costruttore `Exception(String, Throwable)` imposta la causa, quindi `e2.getCause()` è `e1`, il cui simple name è `IllegalStateException`.",
+      "source": "JSE17 DEV - 9 Exception"
+    },
+    {
+      "id": "exceptions-015",
+      "difficulty": 3,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "public class Test {\n    static int x = 1;\n    static int compute() {\n        int y = 10;\n        try {\n            x++;\n            return y;\n        } finally {\n            y = 20;\n            x++;\n        }\n    }\n    public static void main(String[] args) {\n        int r = compute();\n        System.out.println(r + \" \" + x);\n    }\n}",
+      "options": [
+        "10 2",
+        "20 3",
+        "10 3",
+        "20 2",
+        "Compilation fails."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Quando si esegue `return y` il valore da restituire (10) viene valutato e memorizzato; poi viene eseguito il finally prima dell'uscita effettiva. Riassegnare `y` nel finally non cambia il valore già calcolato per il return, quindi `r` vale 10. Il finally incrementa comunque `x`, che passa da 2 a 3. Solo un `return` nel finally potrebbe sostituire il valore restituito.",
+      "source": "JSE17 DEV - 9 Exception"
+    }
+  ]
+}

@@ -1,0 +1,316 @@
+{
+  "topic": "arrays",
+  "keyPoints": [
+    {
+      "title": "Dimensione solo in creazione",
+      "body": "La dimensione di un array non si indica mai nella dichiarazione (`int[3] a;` non compila) ma solo nella creazione con `new`. Non si possono usare insieme dimensione e inizializzatore: `new int[3]{1,2,3}` non compila, mentre `new int[]{1,2,3}` e `{1,2,3}` sono validi."
+    },
+    {
+      "title": "Parentesi quadre dopo il nome",
+      "body": "Le `[]` possono stare dopo il tipo o dopo il nome della variabile. In `int[] a, b[];` la variabile `a` è un `int[]` mentre `b` è un `int[][]`: le parentesi dopo il tipo valgono per tutte le variabili, quelle dopo il nome solo per quella variabile."
+    },
+    {
+      "title": "Valori di default ed eccezioni",
+      "body": "Un array appena creato ha tutte le caselle ai valori di default (`0`, `false`, `null`). Usare un elemento `null` causa `NullPointerException`; un indice fuori da `0..length-1` compila ma a runtime lancia `ArrayIndexOutOfBoundsException`. `length` è un attributo, non un metodo."
+    },
+    {
+      "title": "Covarianza e ArrayStoreException",
+      "body": "Si può assegnare un `String[]` a un `Object[]` o un `Horse[]` a un `Animal[]`, ma il tipo reale dell'array resta quello di creazione: inserire un elemento incompatibile compila ma lancia `ArrayStoreException` a runtime. Tra array di primitivi diversi non c'è conversione: `long[] l = new int[3];` non compila, anche se il singolo `int` si promuove a `long`."
+    },
+    {
+      "title": "Array multidimensionali e frastagliati",
+      "body": "Un array multidimensionale è un array di array: `length` restituisce solo la prima dimensione e le righe possono avere lunghezze diverse (`new int[3][]` lascia le righe a `null`). Un `String[][][]` è anche un `Object`, un `Object[]` e un `Object[][][]`, ma non un `Object[][][][]`."
+    },
+    {
+      "title": "Confronto di array",
+      "body": "`==` e `equals()` confrontano solo i riferimenti. `Arrays.equals()` confronta il contenuto, ma per gli elementi che sono a loro volta array usa `equals()` di Object; per gli array multidimensionali serve `Arrays.deepEquals()`. Stampare un array con `toString()` produce qualcosa come `[I@27341e11`, non gli elementi."
+    },
+    {
+      "title": "Copie e binarySearch",
+      "body": "`System.arraycopy()`, `Arrays.copyOf()` e `Arrays.copyOfRange(arr, from, to)` (con `to` escluso) copiano i riferimenti: gli oggetti e le righe delle matrici sono condivisi tra i due array. Se la nuova lunghezza è maggiore si riempie con i default. `Arrays.binarySearch()` richiede un array ordinato e, se l'elemento manca, restituisce `-(punto di inserimento) - 1`."
+    },
+    {
+      "title": "ArrayList: remove(int) e remove(Object)",
+      "body": "Su una `List<Integer>`, `remove(1)` rimuove l'elemento in posizione 1 (l'overload con il primitivo `int` vince), mentre `remove(Integer.valueOf(1))` rimuove l'oggetto uguale a 1. `add(index, e)` inserisce spostando gli elementi, `set(index, e)` sostituisce."
+    }
+  ],
+  "questions": [
+    {
+      "id": "arrays-001",
+      "difficulty": 1,
+      "prompt": "Which three array declarations compile? (Choose three.)",
+      "code": null,
+      "options": [
+        "`int[3] a = new int[];`",
+        "`int a[] = {1, 2, 3};`",
+        "`int[] a = new int[3]{1, 2, 3};`",
+        "`int[] a = new int[]{1, 2, 3};`",
+        "`int a[] = new int[];`",
+        "`int[] a = new int[3];`"
+      ],
+      "correct": [
+        1,
+        3,
+        5
+      ],
+      "explanation": "Sono valide la creazione con dimensione (`new int[3]`), l'inizializzatore anonimo `{1, 2, 3}` (anche con le parentesi dopo il nome) e `new int[]{1, 2, 3}`. Non compila `int[3] a`: la dimensione non va mai nella dichiarazione. `new int[3]{...}` non compila perché non si possono indicare insieme dimensione e valori. `new int[]` senza dimensione né inizializzatore non compila: \"array dimension missing\".",
+      "source": "JSE17 DEV - 4 Array e Collections"
+    },
+    {
+      "id": "arrays-002",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        String[] names = new String[3];\n        names[1] = \"Steve\";\n        System.out.println(names[0] + \" \" + names[1].length());\n        System.out.println(names[2].length());\n    }\n}",
+      "options": [
+        "` 5` followed by an empty line",
+        "`null 5` followed by a `NullPointerException`",
+        "`null 5` followed by `0`",
+        "Compilation fails.",
+        "A `NullPointerException` is thrown before anything is printed."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Gli elementi di un array di oggetti valgono `null` per default. Concatenare `null` a una stringa è lecito e produce il testo \"null\", quindi la prima riga stampa `null 5`. Alla seconda riga si invoca `length()` su `names[2]`, che è `null`: viene lanciata `NullPointerException`. Il codice compila perché il compilatore non controlla il contenuto degli elementi.",
+      "source": "JSE17 DEV - 4 Array e Collections"
+    },
+    {
+      "id": "arrays-003",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        int[] a = new int[0];\n        System.out.print(a.length + \" \");\n        a[0] = 2;\n        System.out.print(a[0]);\n    }\n}",
+      "options": [
+        "`0 2`",
+        "`1 2`",
+        "Compilation fails because an array cannot have zero elements.",
+        "`0 ` followed by an `ArrayIndexOutOfBoundsException`",
+        "A `NegativeArraySizeException` is thrown."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Un array di lunghezza zero è legale (\"array degenere\"): `a.length` vale `0` e viene stampato. L'accesso a `a[0]` compila (il compilatore non verifica gli indici), ma a runtime la JVM lancia `ArrayIndexOutOfBoundsException` perché non esiste nessun indice valido. `NegativeArraySizeException` si avrebbe solo con una dimensione negativa.",
+      "source": "JSE17 DEV - 4 Array e Collections"
+    },
+    {
+      "id": "arrays-004",
+      "difficulty": 1,
+      "prompt": "Given the declaration `int[] a, b[];` inside a method, which statement compiles?",
+      "code": null,
+      "options": [
+        "`a = new int[2][2];`",
+        "`b = new int[2];`",
+        "`a = b;`",
+        "`b = new int[2][];`",
+        "`b[0] = new int[][]{};`"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Le parentesi dopo il tipo (`int[]`) valgono per tutte le variabili, quelle dopo il nome solo per quella variabile: `a` è un `int[]`, `b` è un `int[][]`. Quindi a `b` si può assegnare `new int[2][]`. Le altre opzioni mescolano le dimensioni: `a` non può ricevere un `int[][]`, `b` non può ricevere un `int[]`, e `b[0]` è un `int[]`, non un `int[][]`.",
+      "source": "JSE17 DEV - 4 Array e Collections"
+    },
+    {
+      "id": "arrays-005",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        Object[] objs = new String[2];\n        objs[0] = \"A\";\n        System.out.print(objs[0]);\n        objs[1] = Integer.valueOf(1);\n        System.out.print(objs[1]);\n    }\n}",
+      "options": [
+        "`A1`",
+        "Compilation fails at line `objs[1] = Integer.valueOf(1);`",
+        "`A` followed by an `ArrayStoreException`",
+        "Compilation fails at line `Object[] objs = new String[2];`",
+        "A `ClassCastException` is thrown."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Un `String[]` può essere assegnato a un riferimento `Object[]` (gli array sono covarianti), e il compilatore accetta anche l'inserimento di un `Integer` perché guarda solo il tipo del riferimento. A runtime però l'array è ancora un `String[]`: dopo aver stampato `A`, l'assegnazione dell'`Integer` lancia `java.lang.ArrayStoreException`, non `ClassCastException`.",
+      "source": "JSE17 DEV - 4 Array e Collections"
+    },
+    {
+      "id": "arrays-006",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.util.Arrays;\n\npublic class Main {\n    public static void main(String[] args) {\n        int[] arr = {2, 4, 6, 8};\n        System.out.print(Arrays.binarySearch(arr, 8) + \" \");\n        System.out.print(Arrays.binarySearch(arr, 5));\n    }\n}",
+      "options": [
+        "`3 -1`",
+        "`4 -3`",
+        "`3 -2`",
+        "`3 -3`",
+        "The output is unpredictable."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "L'array è ordinato, quindi il risultato è prevedibile. `8` si trova all'indice `3` (gli indici partono da zero). `5` non è presente: il suo punto di inserimento sarebbe l'indice `2`, e `binarySearch` restituisce `-(2) - 1 = -3`. Il valore `-1` si avrebbe solo per un elemento da inserire in testa. L'output sarebbe imprevedibile solo con un array non ordinato.",
+      "source": "JSE17 DEV - 4 Array e Collections"
+    },
+    {
+      "id": "arrays-007",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "import java.util.Arrays;\n\npublic class Main {\n    public static void main(String[] args) {\n        int[][] a = {{1, 2}, {3}};\n        int[][] b = {{1, 2}, {3}};\n        System.out.print((a == b) + \" \");\n        System.out.print(a.equals(b) + \" \");\n        System.out.print(Arrays.equals(a, b) + \" \");\n        System.out.print(Arrays.equals(a[0], b[0]) + \" \");\n        System.out.print(Arrays.deepEquals(a, b));\n    }\n}",
+      "options": [
+        "`false false true true true`",
+        "`false true true true true`",
+        "`false false false true true`",
+        "`false false false false true`",
+        "`true true true true true`"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`a == b` e `a.equals(b)` (l'`equals` di Object) confrontano i riferimenti: `false`. `Arrays.equals(a, b)` confronta gli elementi con `equals()`, ma gli elementi sono righe `int[]` diverse, quindi anche qui `false`. `Arrays.equals(a[0], b[0])` confronta due `int[]` con lo stesso contenuto: `true`. Solo `Arrays.deepEquals` scende in tutte le dimensioni: `true`.",
+      "source": "JSE17 DEV - 4 Array e Collections"
+    },
+    {
+      "id": "arrays-008",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        int[][] m = new int[3][];\n        m[0] = new int[2];\n        m[1] = new int[]{1, 2, 3};\n        System.out.print(m.length + \" \" + m[1].length + \" \" + m[0][1] + \" \" + m[2]);\n    }\n}",
+      "options": [
+        "`3 3 0 null`",
+        "`3 3 null null`",
+        "`6 3 0 null`",
+        "A `NullPointerException` is thrown.",
+        "Compilation fails because the second dimension is missing."
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "`new int[3][]` crea un array frastagliato: la prima dimensione è obbligatoria, la seconda no, e le righe valgono `null`. `m.length` è il numero di righe (`3`), `m[1].length` è `3`, `m[0][1]` è un `int` a default `0`. `m[2]` è ancora `null` e concatenarlo a una stringa stampa \"null\" senza eccezioni (l'eccezione arriverebbe solo con `m[2][0]` o `m[2].length`).",
+      "source": "JSE17 DEV - 4 Array e Collections"
+    },
+    {
+      "id": "arrays-009",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.util.Arrays;\n\npublic class Main {\n    public static void main(String[] args) {\n        int[] src = {1, 2, 3, 4, 5};\n        int[] c1 = Arrays.copyOf(src, 7);\n        int[] c2 = Arrays.copyOfRange(src, 1, 3);\n        System.out.println(Arrays.toString(c1) + \" \" + Arrays.toString(c2));\n    }\n}",
+      "options": [
+        "`[1, 2, 3, 4, 5] [2, 3, 4]`",
+        "`[1, 2, 3, 4, 5, 0, 0] [1, 2, 3]`",
+        "`[1, 2, 3, 4, 5, 0, 0] [2, 3]`",
+        "An `ArrayIndexOutOfBoundsException` is thrown.",
+        "`[1, 2, 3, 4, 5, null, null] [2, 3]`"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`Arrays.copyOf(src, 7)` crea un array di 7 elementi: i 5 originali più due caselle al default del tipo (`0` per `int`, non `null`), senza eccezioni. `Arrays.copyOfRange(src, 1, 3)` copia dall'indice `1` incluso al `3` escluso, quindi `[2, 3]`.",
+      "source": "JSE17 DEV - 4 Array e Collections"
+    },
+    {
+      "id": "arrays-010",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        int[][] numbers = {{1, 1}, {2, 2, 2}, {3}};\n        int[][] copy = new int[3][2];\n        System.arraycopy(numbers, 1, copy, 0, 2);\n        copy[0][0] = 9;\n        System.out.print(numbers[1][0] + \" \" + copy[1].length + \" \" + copy[2].length);\n    }\n}",
+      "options": [
+        "`2 1 2`",
+        "`9 1 2`",
+        "`9 2 2`",
+        "`2 2 2`",
+        "An `ArrayIndexOutOfBoundsException` is thrown because the rows have different lengths."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`System.arraycopy` copia 2 elementi di `numbers` a partire dall'indice 1 dentro `copy` a partire dall'indice 0. Gli elementi sono righe (`int[]`), quindi vengono copiati i riferimenti: `copy[0]` è la stessa riga di `numbers[1]` e `copy[1]` è `numbers[2]` (`{3}`, lunghezza 1). Modificare `copy[0][0]` modifica anche `numbers[1][0]`, che diventa `9`. `copy[2]` resta la riga originale `new int[2]`, lunghezza 2. Le lunghezze diverse non causano eccezioni perché si copiano riferimenti.",
+      "source": "JSE17 DEV - 4 Array e Collections"
+    },
+    {
+      "id": "arrays-011",
+      "difficulty": 3,
+      "prompt": "Given `String[][][] m = new String[4][4][5];`, which three statements compile? (Choose three.)",
+      "code": null,
+      "options": [
+        "`Object o = m;`",
+        "`Object[][][][] o = m;`",
+        "`Object[] o = m;`",
+        "`String[][] o = m[0][0];`",
+        "`int[][][] o = m;`",
+        "`Object[][][] o = m;`"
+      ],
+      "correct": [
+        0,
+        2,
+        5
+      ],
+      "explanation": "Un array è un oggetto, quindi `m` è un `Object`. Un `String[][][]` è anche un `Object[]` (array di 4 elementi che sono matrici) e un `Object[][][]` perché `String` è un sottotipo di `Object`. Non può diventare un `Object[][][][]` (servirebbe una dimensione in più). `m[0][0]` è un `String[]`, non un `String[][]`. Tra array di oggetti e array di primitivi non c'è conversione.",
+      "source": "JSE17 DEV - 4 Array e Collections"
+    },
+    {
+      "id": "arrays-012",
+      "difficulty": 3,
+      "prompt": "Given `String[] s = {\"a\"};`, which two expressions compile when passed to `System.out.println()`? (Choose two.)",
+      "code": null,
+      "options": [
+        "`s instanceof Comparable`",
+        "`s instanceof Object[]`",
+        "`s instanceof int[]`",
+        "`s instanceof Integer[]`",
+        "`s instanceof Cloneable`"
+      ],
+      "correct": [
+        1,
+        4
+      ],
+      "explanation": "`instanceof` non compila quando il compilatore sa già che il cast è impossibile. Un `String[]` è un `Object[]`, e tutti gli array implementano `Cloneable` e `Serializable`, quindi queste due espressioni compilano (e valgono `true`). Un array non implementa `Comparable`, anche se i suoi elementi lo fanno: errore di compilazione per tipi incompatibili. Lo stesso per `int[]` e `Integer[]`, che non hanno relazione con `String[]`.",
+      "source": "JSE17 DEV - 4 Array e Collections"
+    },
+    {
+      "id": "arrays-013",
+      "difficulty": 2,
+      "prompt": "Which statement causes a compilation error?",
+      "code": null,
+      "options": [
+        "`long[] x = {1, 2, 'c'};`",
+        "`Object x = new int[3];`",
+        "`Number[] x = new Integer[3];`",
+        "`double[] x = {1, 2f, 3L};`",
+        "`long[] x = new int[3];`"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "I singoli valori di un array di primitivi possono essere promossi automaticamente (un `int` o un `char` diventano `long`; `int`, `float` e `long` diventano `double`), quindi gli inizializzatori compilano. Un `int[]` è un oggetto e quindi un `Object`, e `Integer[]` si assegna a `Number[]` per la covarianza degli array di oggetti. Invece un `int[]` non è mai un `long[]`: tra array di primitivi diversi non esiste conversione.",
+      "source": "JSE17 DEV - 4 Array e Collections"
+    },
+    {
+      "id": "arrays-014",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        List<String> list = new ArrayList<>();\n        list.add(\"a\");\n        list.add(\"b\");\n        list.add(1, \"c\");\n        list.remove(\"a\");\n        list.set(0, \"d\");\n        System.out.println(list + \" \" + list.size());\n    }\n}",
+      "options": [
+        "`[d, c, b] 3`",
+        "`[d, b] 2`",
+        "`[d, c] 2`",
+        "`[c, d] 2`",
+        "An `IndexOutOfBoundsException` is thrown."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Dopo le due `add` la lista è `[a, b]`. `add(1, \"c\")` inserisce in posizione 1 spostando gli altri: `[a, c, b]`. `remove(\"a\")` rimuove l'oggetto: `[c, b]`. `set(0, \"d\")` sostituisce l'elemento in posizione 0 senza aggiungerne: `[d, b]`, dimensione 2. A differenza di un array, un `ArrayList` ha dimensione variabile e `toString()` stampa il contenuto.",
+      "source": "JSE17 DEV - 4 Array e Collections"
+    },
+    {
+      "id": "arrays-015",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        List<Integer> nums = new ArrayList<>(List.of(10, 20, 30, 1));\n        nums.remove(1);\n        nums.remove(Integer.valueOf(1));\n        System.out.println(nums);\n    }\n}",
+      "options": [
+        "`[20, 30]`",
+        "`[10, 20, 30]`",
+        "`[10, 30, 1]`",
+        "An `UnsupportedOperationException` is thrown.",
+        "`[10, 30]`"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "`remove(1)` con un `int` sceglie l'overload `remove(int index)` (corrispondenza esatta, senza boxing) e rimuove l'elemento in posizione 1, cioè `20`: `[10, 30, 1]`. `remove(Integer.valueOf(1))` usa `remove(Object)` e rimuove il valore `1`: `[10, 30]`. Non c'è `UnsupportedOperationException` perché `List.of` viene copiata in un nuovo `ArrayList` modificabile.",
+      "source": "JSE17 DEV - 4 Array e Collections"
+    }
+  ]
+}

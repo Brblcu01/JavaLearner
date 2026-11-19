@@ -1,0 +1,314 @@
+{
+  "topic": "data-types",
+  "keyPoints": [
+    {
+      "title": "Tipo dei literal",
+      "body": "Un literal intero è `int` e uno con la virgola è `double`. `long l = 3000000000;` non compila (literal fuori range di int: serve `L`), `float f = 12.5;` non compila (serve `F`), mentre `float f = 125;` compila perché il literal è un int. Un literal intero si può assegnare a `byte`, `short` o `char` senza cast solo se rientra nel range."
+    },
+    {
+      "title": "Underscore nei literal numerici",
+      "body": "Da Java 7 `_` si può mettere, anche più volte di seguito, solo tra due cifre: `1__000` e `1_0.5_0` sono validi. Non è valido all'inizio o alla fine del numero, vicino al punto decimale (`3._14`), vicino a un suffisso (`99_L`, `2.5_F`) o subito dopo un prefisso come `0x`."
+    },
+    {
+      "title": "Promozione numerica",
+      "body": "Nelle espressioni gli operandi `byte`, `short` e `char` vengono promossi a `int`: `byte + byte` dà `int`, quindi `byte c = a + b;` non compila. In generale il risultato ha il tipo più grande tra gli operandi. Il cast `(byte) a + b` si applica solo ad `a`, quindi il risultato resta `int`. `char` non è assegnabile da/verso `byte` e `short` senza cast, salvo costanti in range."
+    },
+    {
+      "title": "Operatori composti e cast",
+      "body": "Gli operatori composti (`+=`, `-=`, `*=`, `/=`) includono un cast implicito al tipo della variabile: `b += 2` compila anche se `b` è `byte`, e `var v = 10; v *= 2.5;` lascia `v` intero (25). Il cast di un numero non lancia mai eccezioni: tronca la parte decimale (`(int) 3.99` = 3) o, in overflow, produce valori inconsistenti (`(byte) 130` = -126)."
+    },
+    {
+      "title": "var: solo variabili locali",
+      "body": "`var` vale solo per variabili locali (anche nel `for`) con inizializzazione esplicita: niente campi, parametri, tipi di ritorno, `var x;`, `var n = null;`, dichiarazioni composte (`var a = 1, b = 2;`), lambda senza cast o array initializer senza `new`. Il tipo inferito è statico: `var v = 10;` è e resta `int`."
+    },
+    {
+      "title": "Wrapper e autoboxing",
+      "body": "Il boxing converte solo verso il wrapper del tipo esatto: `Long l = 10;` e `Double d = 3;` non compilano, mentre `Number n = 2.5;` e `double d = Integer.valueOf(10);` sì. Con `==` i wrapper confrontano riferimenti: i valori `Integer` da -128 a 127 sono in cache (`==` dà true), 128 no. `equals` tra wrapper di tipo diverso dà false; l'unboxing di un wrapper `null` lancia `NullPointerException`."
+    },
+    {
+      "title": "String immutabile e String pool",
+      "body": "I metodi di `String` (`concat`, `toUpperCase`, `replace`, `strip`...) restituiscono una nuova stringa senza modificare l'originale: se il risultato non viene riassegnato va perso. I literal e le espressioni costanti (anche con variabili `final`) finiscono nel pool e sono condivisi; la concatenazione con variabili non final crea un nuovo oggetto a runtime, quindi `==` dà false. `intern()` restituisce il riferimento del pool."
+    },
+    {
+      "title": "StringBuilder",
+      "body": "`StringBuilder` è mutabile: `append`, `insert`, `delete(start, end)`, `replace(start, end, str)` e `reverse()` modificano l'oggetto stesso e restituiscono `this`, quindi si possono concatenare. Gli indici finali sono esclusivi. `equals` non è sovrascritto (confronta i riferimenti) e `String.equals(sb)` dà sempre false: bisogna prima chiamare `toString()`."
+    }
+  ],
+  "questions": [
+    {
+      "id": "data-types-001",
+      "difficulty": 1,
+      "prompt": "Which declarations compile? (Choose two.)",
+      "code": null,
+      "options": [
+        "`float f = 12.5;`",
+        "`long l = 3000000000;`",
+        "`float f = 125;`",
+        "`byte b = 128;`",
+        "`long l = 3_000_000_000L;`",
+        "`int i = 1_000_;`"
+      ],
+      "correct": [
+        2,
+        4
+      ],
+      "explanation": "`125` è un literal `int`, che si allarga a `float` senza cast. `3_000_000_000L` è un literal `long` grazie al suffisso `L` (gli underscore tra cifre sono leciti). `12.5` è un `double` e richiederebbe `F`; `3000000000` senza `L` è un literal int fuori range (`integer number too large`); 128 è fuori dal range di `byte` (-128..127); un underscore finale come in `1_000_` non è ammesso.",
+      "source": "JSE17 DEV - 2 Data Types"
+    },
+    {
+      "id": "data-types-002",
+      "difficulty": 2,
+      "prompt": "Which numeric literals are used correctly? (Choose two.)",
+      "code": null,
+      "options": [
+        "`int a = 1__000;`",
+        "`double d = 3._14;`",
+        "`long x = 99_L;`",
+        "`int h = 0x_FF;`",
+        "`double e = 1_0.5_0;`",
+        "`float f = 2.5_F;`"
+      ],
+      "correct": [
+        0,
+        4
+      ],
+      "explanation": "L'underscore è ammesso solo tra due cifre e può essere ripetuto: `1__000` vale 1000 e `1_0.5_0` vale 10.50. Non può stare accanto al punto decimale (`3._14`), accanto a un suffisso di tipo (`99_L`, `2.5_F`) né subito dopo il prefisso esadecimale `0x`: in tutti questi casi il compilatore segnala `illegal underscore`.",
+      "source": "JSE17 DEV - 2 Data Types"
+    },
+    {
+      "id": "data-types-003",
+      "difficulty": 2,
+      "prompt": "Given the following declarations in a method, which statements fail to compile when inserted after them? (Choose two.)",
+      "code": "short s = 10;\nfinal short fs = 10;",
+      "options": [
+        "`char c1 = 70;`",
+        "`char c2 = -1;`",
+        "`char c3 = fs;`",
+        "`char c4 = s;`",
+        "`char c5 = 'A' + 1;`"
+      ],
+      "correct": [
+        1,
+        3
+      ],
+      "explanation": "`char` è un intero senza segno a 16 bit. Una costante intera in range si assegna senza cast: `70`, `'A' + 1` (espressione costante = 66) e `fs` (variabile `final` inizializzata con una costante, quindi costante a compile time) compilano. `-1` è fuori range per un `char`. `s` è una variabile `short` non final: il compilatore non conosce il valore e, poiché `short` e `char` non sono assegnabili tra loro senza cast, segnala `possible lossy conversion`.",
+      "source": "JSE17 DEV - 2 Data Types"
+    },
+    {
+      "id": "data-types-004",
+      "difficulty": 2,
+      "prompt": "Given `byte a = 10; byte b = 20;` inside a method, which statement compiles?",
+      "code": null,
+      "options": [
+        "`a += b;`",
+        "`byte c = a + b;`",
+        "`short s = a + b;`",
+        "`byte c = (byte) a + b;`",
+        "`char ch = a;`"
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "L'espressione `a + b` tra due `byte` viene promossa a `int`, quindi non si può assegnare senza cast né a `byte` né a `short`. In `(byte) a + b` il cast ha precedenza sul `+` e si applica solo ad `a`: il risultato è ancora `int`. Un `byte` non è assegnabile a `char` (potrebbe essere negativo). L'operatore composto `+=` invece contiene un cast implicito al tipo della variabile: `a += b` compila e `a` vale 30.",
+      "source": "JSE17 DEV - 2 Data Types"
+    },
+    {
+      "id": "data-types-005",
+      "difficulty": 3,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Casts {\n    public static void main(String[] args) {\n        byte b = 120;\n        b += 10;\n        int i = (int) 3.99;\n        long l = (long) -2.7;\n        System.out.println(b + \" \" + i + \" \" + l);\n    }\n}",
+      "options": [
+        "130 3 -2",
+        "-126 4 -3",
+        "-126 3 -2",
+        "Compilation fails.",
+        "-126 3 -3"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`b += 10` compila grazie al cast implicito dell'operatore composto: 130 non entra in un `byte`, i bit alti vengono scartati e si ottiene 130 - 256 = -126 (nessuna eccezione). Il cast da floating point a intero tronca la parte decimale verso lo zero, senza arrotondare: `(int) 3.99` è 3 e `(long) -2.7` è -2.",
+      "source": "JSE17 DEV - 2 Data Types"
+    },
+    {
+      "id": "data-types-006",
+      "difficulty": 2,
+      "prompt": "Which statements compile? (Choose two.)",
+      "code": null,
+      "options": [
+        "`Long l = 10;`",
+        "`Number n = 2.5;`",
+        "`Double d = 3;`",
+        "`Integer i = 10L;`",
+        "`double dd = Integer.valueOf(10);`"
+      ],
+      "correct": [
+        1,
+        4
+      ],
+      "explanation": "L'autoboxing converte un primitivo solo nel suo wrapper esatto. `2.5` diventa `Double`, che è un `Number`, quindi `Number n = 2.5;` compila. `Integer.valueOf(10)` viene unboxato in `int` e poi allargato a `double`. `10` (int) non può diventare `Long`, `3` (int) non può diventare `Double` e `10L` (long) non può diventare `Integer`: i wrapper non sono in relazione tra loro.",
+      "source": "JSE17 DEV - 2 Data Types"
+    },
+    {
+      "id": "data-types-007",
+      "difficulty": 3,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Boxes {\n    public static void main(String[] args) {\n        Integer a = 127, b = 127;\n        Integer c = 128, d = 128;\n        Long e = 127L;\n        System.out.print(a == b);\n        System.out.print(\" \" + (c == d));\n        System.out.print(\" \" + c.equals(d));\n        System.out.print(\" \" + e.equals(127));\n        System.out.print(\" \" + (c == 128));\n    }\n}",
+      "options": [
+        "true true true true true",
+        "true false true true true",
+        "true false false false true",
+        "true false true false true",
+        "false false true false false"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "L'autoboxing usa `Integer.valueOf`, che riutilizza gli oggetti in cache da -128 a 127: `a == b` è true, mentre per 128 vengono creati due oggetti distinti e `c == d` (confronto di riferimenti) è false. `c.equals(d)` confronta i valori: true. `e.equals(127)` riceve un `Integer` (boxing di un int) e `Long.equals` restituisce false se il tipo è diverso. In `c == 128` un operando è primitivo, quindi `c` viene unboxato e il confronto è numerico: true.",
+      "source": "JSE17 DEV - 2 Data Types"
+    },
+    {
+      "id": "data-types-008",
+      "difficulty": 1,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "public class Totals {\n    public static void main(String[] args) {\n        Integer count = null;\n        int total = 5;\n        if (total > 3) total += count;\n        System.out.println(total);\n    }\n}",
+      "options": [
+        "5",
+        "A NullPointerException is thrown.",
+        "0",
+        "Compilation fails."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Il codice compila: un `Integer` può valere `null` e `total += count` è un'operazione lecita tra `int` e `Integer`. A runtime però `count` deve essere unboxato (`count.intValue()`) e, essendo `null`, viene lanciata una `NullPointerException`. Un wrapper `null` non vale 0.",
+      "source": "JSE17 DEV - 2 Data Types"
+    },
+    {
+      "id": "data-types-009",
+      "difficulty": 1,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Immutable {\n    public static void main(String[] args) {\n        String s = \"java\";\n        s.toUpperCase();\n        s.concat(\"17\");\n        String t = s.replace('a', 'o');\n        s = s + t.substring(1, 3);\n        System.out.println(s + \" \" + s.length());\n    }\n}",
+      "options": [
+        "javaov 6",
+        "JAVA17ov 8",
+        "java17ov 8",
+        "javaovo 7",
+        "javajovo 8"
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "Le stringhe sono immutabili: `toUpperCase()` e `concat(\"17\")` restituiscono nuove stringhe che non vengono assegnate, quindi `s` resta \"java\". `replace('a', 'o')` produce \"jovo\" e `substring(1, 3)` prende gli indici 1 e 2 (l'indice finale è escluso): \"ov\". Il risultato è \"javaov\", di lunghezza 6.",
+      "source": "JSE17 DEV - 2 Data Types"
+    },
+    {
+      "id": "data-types-010",
+      "difficulty": 3,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Pool {\n    public static void main(String[] args) {\n        String a = \"hello\";\n        String b = \"hel\";\n        final String c = \"hel\";\n        String d = b + \"lo\";\n        String e = c + \"lo\";\n        String f = new String(\"hello\").intern();\n        System.out.println((a == d) + \" \" + (a == e) + \" \" + (a == f));\n    }\n}",
+      "options": [
+        "true true true",
+        "false false true",
+        "false true true",
+        "false true false",
+        "true false true"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`b` non è final, quindi `b + \"lo\"` viene calcolata a runtime e crea un nuovo oggetto `String` fuori dal pool: `a == d` è false. `c` è final e inizializzata con un literal, quindi `c + \"lo\"` è un'espressione costante valutata a compile time e diventa il literal \"hello\" del pool: `a == e` è true. `intern()` restituisce il riferimento alla stringa del pool: `a == f` è true.",
+      "source": "JSE17 DEV - 2 Data Types"
+    },
+    {
+      "id": "data-types-011",
+      "difficulty": 3,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Builder {\n    public static void main(String[] args) {\n        StringBuilder sb = new StringBuilder(\"abcdef\");\n        sb.delete(1, 3).insert(2, \"XY\").reverse();\n        sb.replace(0, 2, \"-\");\n        System.out.println(sb + \" \" + sb.length());\n    }\n}",
+      "options": [
+        "-XYda 5",
+        "-da 3",
+        "fe-XYa 6",
+        "An exception is thrown at runtime.",
+        "-YXda 5"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "I metodi di `StringBuilder` modificano l'oggetto e restituiscono `this`, quindi la catena opera sempre sullo stesso buffer. `delete(1, 3)` rimuove gli indici 1 e 2: \"adef\". `insert(2, \"XY\")` dà \"adXYef\" e `reverse()` dà \"feYXda\". `replace(0, 2, \"-\")` sostituisce gli indici 0 e 1 (\"fe\") con \"-\": \"-YXda\", lunghezza 5.",
+      "source": "JSE17 DEV - 2 Data Types"
+    },
+    {
+      "id": "data-types-012",
+      "difficulty": 2,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Equality {\n    public static void main(String[] args) {\n        StringBuilder sb1 = new StringBuilder(\"ok\");\n        StringBuilder sb2 = new StringBuilder(\"ok\");\n        String s = \"ok\";\n        System.out.print(sb1.equals(sb2) + \" \");\n        System.out.print(s.equals(sb1) + \" \");\n        System.out.print(s.equals(sb1.toString()) + \" \");\n        System.out.print(s == sb1.toString());\n    }\n}",
+      "options": [
+        "true true true true",
+        "false false true false",
+        "false false true true",
+        "true false true false",
+        "Compilation fails."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`StringBuilder` non sovrascrive `equals`, che resta quello di `Object` (confronto di riferimenti): `sb1.equals(sb2)` è false. `String.equals` restituisce false se l'argomento non è una `String`, quindi anche `s.equals(sb1)` è false. Con `toString()` si confrontano due `String` con lo stesso contenuto: true. Però `toString()` crea un nuovo oggetto fuori dal pool, quindi `==` dà false.",
+      "source": "JSE17 DEV - 2 Data Types"
+    },
+    {
+      "id": "data-types-013",
+      "difficulty": 2,
+      "prompt": "Assuming `java.util.*` is imported, which local variable declarations compile? (Choose two.)",
+      "code": null,
+      "options": [
+        "`var x;`",
+        "`var a = 1, b = 2;`",
+        "`var list = new ArrayList<String>();`",
+        "`var f = () -> 5;`",
+        "`var n = null;`",
+        "`var arr = new int[]{1, 2};`"
+      ],
+      "correct": [
+        2,
+        5
+      ],
+      "explanation": "`var` richiede un inizializzatore da cui il compilatore possa dedurre un tipo: `ArrayList<String>` e `int[]` vanno bene. `var x;` non ha inizializzatore, `null` non ha un tipo da cui inferire, una lambda richiede un tipo target esplicito e `var` non è ammesso in una dichiarazione composta (`'var' is not allowed in a compound declaration`).",
+      "source": "JSE17 DEV - 2 Data Types"
+    },
+    {
+      "id": "data-types-014",
+      "difficulty": 1,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Blank {\n    public static void main(String[] args) {\n        String s = \"  \\t Hi  \";\n        System.out.print(\"[\" + s.strip() + \"] \");\n        System.out.print(s.isBlank() + \" \");\n        System.out.print(\"\".isEmpty() + \" \");\n        System.out.print(\" \".isEmpty() + \" \");\n        System.out.print(\"ab\".repeat(2));\n    }\n}",
+      "options": [
+        "[Hi] false true false abab",
+        "[Hi] true true false abab",
+        "[Hi] false true true abab",
+        "[Hi  ] false true false abab"
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "`strip()` rimuove tutti gli spazi bianchi (compresi `\\t`) sia all'inizio sia alla fine: \"[Hi]\". `isBlank()` è true solo se la stringa è vuota o contiene solo whitespace, ma qui c'è \"Hi\": false. `isEmpty()` è true solo se `length()` è 0, quindi è true per \"\" e false per \" \". `repeat(2)` produce \"abab\".",
+      "source": "JSE17 DEV - 2 Data Types"
+    },
+    {
+      "id": "data-types-015",
+      "difficulty": 3,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "public class Infer {\n    public static void main(String[] args) {\n        var v = 10;\n        v *= 2.5;\n        var w = v / 4;\n        System.out.println(v + \" \" + w);\n    }\n}",
+      "options": [
+        "25.0 6.25",
+        "25 6",
+        "25 6.25",
+        "Compilation fails."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`var v = 10;` inferisce il tipo `int` e il tipo non cambia più. `v = v * 2.5;` non compilerebbe (double in int), ma l'operatore composto `*=` contiene un cast implicito: `v` diventa `(int) 25.0`, cioè 25. `w` è inferito come `int` perché `v / 4` è una divisione tra interi che tronca: 25 / 4 = 6. Stampa `25 6`.",
+      "source": "JSE17 DEV - 2 Data Types"
+    }
+  ]
+}

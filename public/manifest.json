@@ -1,0 +1,20 @@
+{
+  "name": "JavaLearner · 1Z0-829",
+  "short_name": "JavaLearner",
+  "description": "Preparazione alla certificazione Oracle Java SE 17 Developer (1Z0-829).",
+  "lang": "it",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eef2ef",
+  "theme_color": "#eef2ef",
+  "categories": ["education"],
+  "icons": [
+    { "src": "icons/icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-1024.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }
+  ]
+}

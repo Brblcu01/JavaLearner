@@ -1,0 +1,308 @@
+{
+  "topic": "security",
+  "keyPoints": [
+    {
+      "title": "Sandbox e Security Manager",
+      "body": "La sandbox è disabilitata per default e si abilita lanciando l'applicazione con `-Djava.security.manager` (per il debug dei controlli `-Djava.security.debug=access`). Una volta attiva, le operazioni sensibili vengono controllate tramite domini di protezione e file di policy, e un permesso mancante provoca una `AccessControlException`. In Java 17 il Security Manager è deprecato per la rimozione, ma è ancora utilizzabile."
+    },
+    {
+      "title": "ClassLoader e domini di protezione",
+      "body": "Le classi di sistema sono caricate dal bootstrap class loader (rappresentato da `null`) e hanno `AllPermission`. Le classi applicative, con la sandbox attiva, non hanno alcun permesso di default: servono un file di policy o permessi concessi via codice. Tutte le classi caricate dallo stesso class loader appartengono allo stesso dominio di protezione."
+    },
+    {
+      "title": "File di policy e permessi",
+      "body": "Una voce di policy ha la forma `grant [signedBy \"...\"] [, codeBase \"URL\"] { permission Tipo \"nome\", \"azioni\"; };`. Un permesso può esprimere fino a tre aspetti: tipo (es. `java.security.AllPermission`), nome (es. `RuntimePermission \"stopThread\"`) e azioni (es. `FilePermission \"/tmp/foo\", \"read\"`). I permessi si possono creare anche via codice con `Permissions.add(...)`."
+    },
+    {
+      "title": "Minimo privilegio e stack di invocazione",
+      "body": "`checkPermission()` percorre lo stack di invocazione: un'azione è autorizzata solo se TUTTI i domini coinvolti hanno il permesso, cioè vale l'intersezione dei permessi. Un dominio chiamante non può aggiungere privilegi a quello chiamato. Un thread figlio eredita uno snapshot del contesto di esecuzione del padre, che viene controllato dopo il proprio stack."
+    },
+    {
+      "title": "doPrivileged()",
+      "body": "`AccessController.doPrivileged()` interrompe il controllo dei permessi al frame che lo invoca: i permessi dei chiamanti non contano più, mentre i metodi chiamati dal blocco privilegiato vengono ancora controllati (comportamento asimmetrico). Il codice privilegiato non ottiene mai più permessi di quelli del proprio dominio e l'effetto riguarda solo il thread corrente. Con `PrivilegedExceptionAction` le eccezioni checked vengono incapsulate in una `PrivilegedActionException` (si recuperano con `getException()`)."
+    },
+    {
+      "title": "Contesto passato a doPrivileged()",
+      "body": "La variante `doPrivileged(action, AccessControlContext)` è più restrittiva: dopo i normali controlli fino al blocco privilegiato, il permesso viene verificato anche sul contesto passato. L'azione passa se, e solo se, il permesso è concesso sia ai domini dello stack sia al contesto. Un contesto costruito con un `ProtectionDomain` con `Permissions` vuoti fa quindi fallire ogni controllo."
+    },
+    {
+      "title": "Immutabilità e copie difensive",
+      "body": "Una classe immutabile è `final` (o ha costruttori privati), ha campi `private final`, nessun setter e fa copie difensive degli oggetti mutabili sia in ingresso (costruttore) sia in uscita (getter), ad esempio con `List.copyOf()`. Restituire direttamente un campo mutabile permette al chiamante di modificare lo stato interno anche se il campo è `final`. Dichiarare `final` classi o metodi impedisce che una sottoclasse sovrascriva controlli di sicurezza."
+    },
+    {
+      "title": "Input non fidato e dati sensibili",
+      "body": "Contro le injection si usano `PreparedStatement` con parametri `?` e la validazione dell'input, mai la concatenazione di stringhe. Contro il denial of service si limitano dimensioni e risorse (lunghezza dell'input, archivi compressi) e si chiudono le risorse con try-with-resources. I dati sensibili vanno tenuti in `char[]` da azzerare dopo l'uso, non vanno scritti nei log e non vanno serializzati (`transient`); deserializzare dati non fidati è pericoloso."
+    }
+  ],
+  "questions": [
+    {
+      "id": "security-001",
+      "difficulty": 1,
+      "prompt": "How can the sandbox (the Security Manager) be enabled for a Java 17 application launched from the command line?",
+      "code": null,
+      "options": [
+        "javac -security MyApp.java",
+        "java --sandbox MyApp",
+        "java -Djava.security.manager MyApp",
+        "Nothing is needed: the Security Manager is enabled by default."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "La sandbox è disabilitata per default e si abilita passando alla JVM la proprietà di sistema `-Djava.security.manager` (eventualmente con `-Djava.security.debug=access` per vedere i controlli). Il compilatore `javac` non c'entra e non esiste un'opzione `--sandbox`. In Java 17 il Security Manager è deprecato per la rimozione (JEP 411) ma funziona ancora, con un avviso.",
+      "source": "JSE11 DEV - 19 Concetti sulla sicurezza"
+    },
+    {
+      "id": "security-002",
+      "difficulty": 2,
+      "prompt": "A Security Manager is active. main() in class A (protection domain 1: permissions X and Y) calls m1() in class B (domain 2: permissions X and Z), which calls m2() in class C (domain 3: permissions X and K). No privileged code is used. m2() performs an action that requires permission X and then an action that requires permission K. What is the result?",
+      "code": null,
+      "options": [
+        "Both actions are allowed.",
+        "The action requiring X is allowed; the action requiring K throws an AccessControlException.",
+        "The action requiring X throws an AccessControlException; the action requiring K is allowed.",
+        "Both actions throw an AccessControlException.",
+        "Only domain 3 is checked, because it is the domain that performs the actions."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Il controllo percorre tutto lo stack di invocazione: l'azione è permessa solo se tutti i domini coinvolti hanno il permesso (principio del minimo privilegio). L'intersezione di {X, Y}, {X, Z} e {X, K} è {X}: l'azione che richiede X passa, quella che richiede K fallisce con `AccessControlException`, perché i domini 1 e 2 non hanno K. Non viene controllato solo il dominio che esegue l'azione.",
+      "source": "JSE11 DEV - 19 Concetti sulla sicurezza"
+    },
+    {
+      "id": "security-003",
+      "difficulty": 3,
+      "prompt": "Which statements about AccessController.doPrivileged() are true? (Choose two.)",
+      "code": null,
+      "options": [
+        "Code inside a doPrivileged block can obtain permissions that its own protection domain does not have.",
+        "The stack walk stops at the frame that called doPrivileged(), so the permissions of its callers are not checked.",
+        "Methods called from inside the privileged block must still have the required permission in their own domains.",
+        "Calling doPrivileged() disables permission checks for all threads of the application.",
+        "Passing an AccessControlContext to doPrivileged() grants every permission contained in that context."
+      ],
+      "correct": [
+        1,
+        2
+      ],
+      "explanation": "Diventare privilegiati significa che il controllo si ferma al metodo che invoca `doPrivileged()`: i permessi dei chiamanti non vengono più considerati. Il comportamento è asimmetrico: i metodi chiamati dal blocco (e il dominio del metodo privilegiato stesso) vengono ancora controllati. Il codice privilegiato non ottiene mai più permessi di quanti ne abbia già, l'effetto riguarda solo il thread corrente, e un contesto passato come argomento aggiunge controlli invece di concedere permessi.",
+      "source": "JSE11 DEV - 19 Concetti sulla sicurezza"
+    },
+    {
+      "id": "security-004",
+      "difficulty": 1,
+      "prompt": "A Security Manager is active and the policy file grants nothing to the application. Which statement is true?",
+      "code": null,
+      "options": [
+        "System classes loaded by the bootstrap class loader have AllPermission, while application classes have no permissions.",
+        "All classes have AllPermission until a policy file restricts them.",
+        "Application classes get the same permissions as java.lang.String, because they share its protection domain.",
+        "Only classes packaged in a signed JAR can be loaded by the application class loader."
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "Alle classi di sistema (caricate dal bootstrap class loader) sono accordati tutti i privilegi, quindi per loro non serve un file di policy. Le classi applicative, caricate da un altro class loader, appartengono a un dominio di protezione diverso e di default non hanno alcun permesso: per concederli serve un file `.policy` o la creazione programmatica dei permessi. La firma del JAR non è un requisito per il caricamento.",
+      "source": "JSE11 DEV - 19 Concetti sulla sicurezza"
+    },
+    {
+      "id": "security-005",
+      "difficulty": 2,
+      "prompt": "Which policy file entry correctly grants read access to /tmp/data.txt to the code loaded from /opt/app/?",
+      "code": null,
+      "options": [
+        "grant codeBase \"file:/opt/app/-\" { permission java.io.FilePermission \"/tmp/data.txt\", \"read\"; };",
+        "grant codeBase \"file:/opt/app/-\" { permission java.io.FilePermission(\"/tmp/data.txt\", \"read\"); };",
+        "allow codeBase \"file:/opt/app/-\" { permission java.io.FilePermission \"/tmp/data.txt\", \"read\"; };",
+        "grant codeBase \"file:/opt/app/-\" { permission \"/tmp/data.txt\", \"read\"; };"
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "La sintassi di una voce di policy è `grant` seguito da eventuali `signedBy`/`codeBase`, poi un blocco con una o più righe `permission <classe> \"<nome>\", \"<azioni>\";` e il blocco chiuso da `};`. Il permesso indica tipo (`java.io.FilePermission`), nome (il file) e azioni (`read`). Non si usa la sintassi di invocazione di un costruttore con le parentesi, la parola chiave è `grant` e non `allow`, e il tipo del permesso non può essere omesso.",
+      "source": "JSE11 DEV - 19 Concetti sulla sicurezza"
+    },
+    {
+      "id": "security-006",
+      "difficulty": 3,
+      "prompt": "Assume the code runs with the required permissions (or without a Security Manager) and that missing-file.txt does not exist. What is the result?",
+      "code": "import java.io.*;\nimport java.security.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        try {\n            FileInputStream in = AccessController.doPrivileged(\n                (PrivilegedExceptionAction<FileInputStream>)\n                    () -> new FileInputStream(\"missing-file.txt\"));\n            System.out.println(\"opened\");\n        } catch (PrivilegedActionException e) {\n            System.out.println(e.getClass().getSimpleName() + \" / \"\n                + e.getException().getClass().getSimpleName());\n        }\n    }\n}",
+      "options": [
+        "opened",
+        "PrivilegedActionException / FileNotFoundException",
+        "Compilation fails because FileNotFoundException is not handled.",
+        "A FileNotFoundException is thrown to the caller of main().",
+        "PrivilegedActionException / PrivilegedActionException"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Il metodo `run()` di `PrivilegedExceptionAction` dichiara `throws Exception`, quindi la lambda può lanciare `FileNotFoundException` e il codice compila. `doPrivileged()` incapsula le eccezioni checked lanciate dall'azione in una `PrivilegedActionException`, che deve essere gestita; la causa originale si recupera con `getException()`. Viene quindi stampato `PrivilegedActionException / FileNotFoundException`.",
+      "source": "JSE11 DEV - 19 Concetti sulla sicurezza"
+    },
+    {
+      "id": "security-007",
+      "difficulty": 3,
+      "prompt": "A Security Manager is active. Method m1() calls AccessController.doPrivileged(action, acc), where acc was created as new AccessControlContext(new ProtectionDomain[] { new ProtectionDomain(null, new Permissions()) }). Inside action, a FileInputStream reads a file. The protection domain of m1() and the system classes both have the required FilePermission, but the callers of m1() do not. What is the result?",
+      "code": null,
+      "options": [
+        "The read succeeds, because the stack walk stops at m1() and its callers are ignored.",
+        "The read succeeds, because the system classes have AllPermission.",
+        "An AccessControlException is thrown, because the permission is also checked against the context passed to doPrivileged().",
+        "Compilation fails, because doPrivileged() does not accept an AccessControlContext."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Quando a `doPrivileged()` viene passato un `AccessControlContext`, i controlli lungo lo stack si fermano al blocco privilegiato (i chiamanti di `m1()` sono ignorati), ma il permesso viene poi verificato anche sul contesto passato. Il permesso è concesso solo se c'è sia nei domini dello stack sia nel contesto: qui il contesto contiene un `ProtectionDomain` con `Permissions` vuoti, quindi il controllo fallisce con `AccessControlException`. Esiste infatti l'overload `doPrivileged(PrivilegedAction, AccessControlContext)`.",
+      "source": "JSE11 DEV - 19 Concetti sulla sicurezza"
+    },
+    {
+      "id": "security-008",
+      "difficulty": 1,
+      "prompt": "A Security Manager is active. Code in the main thread creates and starts a new thread that reads a file. How are permission checks performed for the code executed by the new thread?",
+      "code": null,
+      "options": [
+        "Only the frames on the stack of the new thread are checked.",
+        "The new thread always runs with AllPermission, because it is created by the JVM.",
+        "The permissions of the thread that calls join() on the new thread are checked.",
+        "The new thread inherits a snapshot of the parent thread's access control context, which is checked after its own stack."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Alla creazione del thread figlio viene fatto uno snapshot del contesto di esecuzione del thread padre, che viene ereditato. I controlli percorrono prima lo stack del figlio e poi il contesto ereditato (`inheritedContext.checkPermission(...)`), come se `run()` fosse collocato sullo stack del padre. In questo modo creare un thread non permette di eludere il principio del minimo privilegio.",
+      "source": "JSE11 DEV - 19 Concetti sulla sicurezza"
+    },
+    {
+      "id": "security-009",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "import java.util.*;\n\npublic class Main {\n    static final class Team {\n        private final List<String> members;\n        public Team(List<String> members) {\n            this.members = new ArrayList<>(members);\n        }\n        public List<String> getMembers() {\n            return members;\n        }\n    }\n    public static void main(String[] args) {\n        List<String> src = new ArrayList<>(List.of(\"ann\"));\n        Team t = new Team(src);\n        src.add(\"bob\");\n        t.getMembers().add(\"eve\");\n        System.out.println(t.getMembers());\n    }\n}",
+      "options": [
+        "[ann]",
+        "[ann, bob]",
+        "[ann, eve]",
+        "[ann, bob, eve]",
+        "An UnsupportedOperationException is thrown at runtime."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Il costruttore fa una copia difensiva in ingresso, quindi aggiungere `bob` alla lista originale non modifica `Team`. Il getter però restituisce il riferimento alla lista interna: il campo è `final`, ma l'oggetto `ArrayList` resta mutabile, e il chiamante aggiunge `eve` direttamente allo stato interno. Risultato `[ann, eve]`. Per rendere la classe davvero immutabile anche il getter dovrebbe restituire una copia o una vista non modificabile (es. `List.copyOf(members)`).",
+      "source": "JSE11 DEV - 19 Concetti sulla sicurezza"
+    },
+    {
+      "id": "security-010",
+      "difficulty": 2,
+      "prompt": "Which practices help make a class immutable? (Choose three.)",
+      "code": null,
+      "options": [
+        "Declare the class final, or make its constructors private and provide factory methods.",
+        "Declare all fields private and final.",
+        "Mark every method synchronized.",
+        "Make defensive copies of mutable objects received in the constructor and returned by getters.",
+        "Provide setter methods that validate their arguments.",
+        "Implement Cloneable so that callers can obtain copies."
+      ],
+      "correct": [
+        0,
+        1,
+        3
+      ],
+      "explanation": "Una classe immutabile impedisce l'estensione (classe `final` o costruttori privati), ha campi `private final` e protegge gli oggetti mutabili con copie difensive sia in ingresso sia in uscita. `synchronized` riguarda la concorrenza e non impedisce le modifiche; un setter, anche se valida l'input, modifica lo stato; `Cloneable` non rende immutabile la classe ed è anzi sconsigliato per oggetti sensibili.",
+      "source": "JSE11 DEV - 19 Concetti sulla sicurezza"
+    },
+    {
+      "id": "security-011",
+      "difficulty": 2,
+      "prompt": "Given a java.sql.Connection con and a String user that comes from an HTTP request, which code fragment prevents SQL injection?",
+      "code": null,
+      "options": [
+        "Statement st = con.createStatement(); st.executeQuery(\"SELECT * FROM users WHERE name = '\" + user + \"'\");",
+        "PreparedStatement ps = con.prepareStatement(\"SELECT * FROM users WHERE name = '\" + user + \"'\"); ps.executeQuery();",
+        "Statement st = con.createStatement(); st.executeQuery(\"SELECT * FROM users WHERE name = '\" + user.trim() + \"'\");",
+        "PreparedStatement ps = con.prepareStatement(\"SELECT * FROM users WHERE name = ?\"); ps.setString(1, user); ps.executeQuery();"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Solo il `PreparedStatement` con il parametro `?` valorizzato tramite `setString()` tratta l'input come dato e non come parte del comando SQL. Usare un `PreparedStatement` non basta se la query viene comunque costruita concatenando l'input: un valore come `' OR '1'='1` altererebbe la query. Anche `trim()` non neutralizza i caratteri pericolosi.",
+      "source": "JSE11 DEV - 19 Concetti sulla sicurezza"
+    },
+    {
+      "id": "security-012",
+      "difficulty": 2,
+      "prompt": "Which practices help mitigate denial-of-service attacks when an application processes untrusted input? (Choose two.)",
+      "code": null,
+      "options": [
+        "Increase the maximum heap size so that any input fits in memory.",
+        "Limit the size of data read from untrusted sources, such as the maximum request or file length.",
+        "Catch OutOfMemoryError and keep processing the same input.",
+        "Decompress uploaded archives completely before checking their size.",
+        "Release resources such as streams and connections with try-with-resources."
+      ],
+      "correct": [
+        1,
+        4
+      ],
+      "explanation": "Un attacco DoS mira a esaurire risorse (memoria, CPU, file handle, connessioni). Limitare la dimensione dell'input non fidato e rilasciare sempre le risorse con try-with-resources sono contromisure efficaci. Aumentare l'heap sposta solo il limite; continuare dopo un `OutOfMemoryError` lascia l'applicazione in uno stato inaffidabile; decomprimere un archivio prima di controllarne le dimensioni espone a una \"zip bomb\".",
+      "source": "JSE11 DEV - 19 Concetti sulla sicurezza"
+    },
+    {
+      "id": "security-013",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.io.*;\n\npublic class Main {\n    static class User implements Serializable {\n        private static final long serialVersionUID = 1L;\n        private final String name;\n        private transient String password;\n        User(String name, String password) { this.name = name; this.password = password; }\n        public String toString() { return name + \":\" + password; }\n    }\n    public static void main(String[] args) throws Exception {\n        ByteArrayOutputStream bos = new ByteArrayOutputStream();\n        try (ObjectOutputStream out = new ObjectOutputStream(bos)) {\n            out.writeObject(new User(\"alice\", \"s3cret\"));\n        }\n        try (ObjectInputStream in = new ObjectInputStream(\n                new ByteArrayInputStream(bos.toByteArray()))) {\n            System.out.println(in.readObject());\n        }\n    }\n}",
+      "options": [
+        "alice:s3cret",
+        "null:s3cret",
+        "A NotSerializableException is thrown at runtime.",
+        "Compilation fails.",
+        "alice:null"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "I campi `transient` non vengono scritti nello stream di serializzazione: è il modo standard per evitare che dati sensibili come una password finiscano su disco o in rete. Alla deserializzazione il campo `transient` assume il valore di default (`null`), mentre `name` (anche se `final`) viene ripristinato. Risultato `alice:null`. `User` è una classe nested `static` serializzabile, quindi non c'è `NotSerializableException`.",
+      "source": "JSE11 DEV - 19 Concetti sulla sicurezza"
+    },
+    {
+      "id": "security-014",
+      "difficulty": 1,
+      "prompt": "Why is a char[] preferred over a String for holding a password in memory?",
+      "code": null,
+      "options": [
+        "Because the JVM automatically encrypts the contents of char arrays stored on the heap.",
+        "Because a String cannot contain all the characters that may appear in a password.",
+        "Because the array can be overwritten as soon as it is no longer needed, while a String is immutable.",
+        "Because char arrays are never included in heap dumps or core files."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Una `String` è immutabile: il suo contenuto resta in memoria finché il garbage collector non la elimina (e potrebbe stare nel pool delle stringhe), senza possibilità di cancellarlo. Un `char[]` può essere azzerato subito dopo l'uso (es. `Arrays.fill(pwd, '\\0')`), riducendo il tempo di esposizione del dato. La JVM non cifra gli array e questi possono comunque comparire in un heap dump.",
+      "source": "JSE11 DEV - 19 Concetti sulla sicurezza"
+    },
+    {
+      "id": "security-015",
+      "difficulty": 3,
+      "prompt": "Given the following code, the Evil class creates an Account with a negative balance. Which changes, each applied independently, prevent this? (Choose two.)",
+      "code": "public class Main {\n    static class Account {\n        private int balance;\n        public Account(int initial) {\n            if (!isValid(initial)) throw new IllegalArgumentException(\"invalid\");\n            balance = initial;\n        }\n        public boolean isValid(int amount) { return amount >= 0; }\n        int getBalance() { return balance; }\n    }\n    static class Evil extends Account {\n        Evil() { super(-100); }\n        @Override public boolean isValid(int amount) { return true; }\n    }\n    public static void main(String[] args) {\n        System.out.println(new Evil().getBalance());\n    }\n}",
+      "options": [
+        "Declare isValid() as protected instead of public.",
+        "Declare isValid() as final.",
+        "Declare the balance field final.",
+        "Declare the Account class final.",
+        "Declare the Account constructor private."
+      ],
+      "correct": [
+        1,
+        3
+      ],
+      "explanation": "Il costruttore di `Account` invoca un metodo sovrascrivibile: per polimorfismo viene eseguito `Evil.isValid()`, che salta la validazione, e il programma stampa `-100`. Dichiarando `isValid()` `final` il metodo non può essere sovrascritto, e dichiarando `final` la classe `Account` non può essere estesa: in entrambi i casi `Evil` non compila più. Con `protected` l'override resta possibile; un campo `final` non cambia la validazione. Un costruttore `private` qui non basta: `Evil` è una classe nested dello stesso top-level `Main`, quindi può ancora invocare `super(-100)`.",
+      "source": "JSE11 DEV - 19 Concetti sulla sicurezza"
+    }
+  ]
+}

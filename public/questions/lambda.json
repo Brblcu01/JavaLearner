@@ -1,0 +1,316 @@
+{
+  "topic": "lambda",
+  "keyPoints": [
+    {
+      "title": "Sintassi delle lambda",
+      "body": "Una lambda ha parametri, freccia `->` e corpo. Le parentesi tonde si possono omettere solo con un unico parametro senza tipo (`s -> ...`); con tipo esplicito, `var`, zero o più parametri sono obbligatorie. Con le graffe il corpo è un blocco di istruzioni: servono `return` (se il metodo non è void) e i punti e virgola. I parametri devono essere tutti tipizzati, tutti `var` o tutti senza tipo: non si possono mescolare."
+    },
+    {
+      "title": "Interfaccia funzionale",
+      "body": "Un'interfaccia funzionale ha esattamente un metodo astratto; i metodi default, i metodi static e i metodi astratti che ridichiarano metodi pubblici di `Object` (`equals`, `toString`, `hashCode`) non contano. `@FunctionalInterface` è facoltativa, ma se presente il compilatore verifica la regola come fa `@Override`."
+    },
+    {
+      "title": "Variabili locali effectively final",
+      "body": "Una lambda può usare variabili locali del metodo solo se sono final o effectively final: qualunque riassegnazione, prima o dopo la lambda, fa fallire la compilazione. Variabili di istanza e statiche non hanno restrizioni. Modificare lo stato di un oggetto referenziato (ad esempio `list.add(...)` o un elemento di array) è lecito, perché il riferimento non cambia."
+    },
+    {
+      "title": "Scope dei parametri della lambda",
+      "body": "La lambda non introduce un nuovo scope per i nomi: un parametro o una variabile dichiarata nel corpo non può avere lo stesso nome di una variabile locale già visibile nel metodo, altrimenti errore \"variable is already defined\"."
+    },
+    {
+      "title": "Le interfacce di java.util.function",
+      "body": "`Predicate<T>`: T -> boolean (`test`); `Function<T,R>`: T -> R (`apply`); `Consumer<T>`: T -> void (`accept`); `Supplier<T>`: () -> T (`get`); `UnaryOperator<T>`: T -> T; `BinaryOperator<T>`: (T,T) -> T; le versioni `Bi` (`BiPredicate`, `BiFunction`, `BiConsumer`) prendono due argomenti. Oltre due parametri serve un'interfaccia funzionale personalizzata."
+    },
+    {
+      "title": "Specializzazioni primitive",
+      "body": "Per evitare il boxing esistono versioni per int, long e double: `IntPredicate`, `IntFunction<R>` (int -> R), `ToIntFunction<T>` (T -> int, metodo `applyAsInt`), `DoubleToIntFunction`, `IntSupplier` (`getAsInt`), `IntUnaryOperator`, ecc. Attenzione ai nomi dei metodi: `applyAsInt`, `applyAsDouble`, `getAsInt`, non `apply`/`get`."
+    },
+    {
+      "title": "Method reference",
+      "body": "Quattro forme: metodo statico (`Integer::parseInt`), metodo di istanza su un parametro (`String::length`, il primo parametro diventa l'oggetto su cui si invoca), metodo di istanza su un oggetto esistente (`\"ciao\"::startsWith`) e costruttore (`ArrayList::new`). Il compilatore deve far combaciare i parametri dell'interfaccia funzionale con quelli del metodo: un metodo di istanza referenziato tramite la classe richiede un parametro in più."
+    },
+    {
+      "title": "Comporre le lambda",
+      "body": "`Predicate` offre `and`, `or` e `negate`; `Function` offre `andThen` e `compose`: `f.andThen(g)` calcola g(f(x)), mentre `f.compose(g)` calcola f(g(x)). Anche `BiFunction` ha `andThen(Function)`, che applica la funzione al risultato. `Comparator` offre `reversed` e `thenComparing`."
+    }
+  ],
+  "questions": [
+    {
+      "id": "lambda-001",
+      "difficulty": 2,
+      "prompt": "Which three lambda expressions can be assigned to a variable of type Predicate<String>? (Choose three.)",
+      "code": null,
+      "options": [
+        "`s -> s.isEmpty()`",
+        "`(String s) -> { s.isEmpty(); }`",
+        "`String s -> s.isEmpty()`",
+        "`(s) -> { return s.isEmpty(); }`",
+        "`s -> { return s.isEmpty() }`",
+        "`(var s) -> s.isEmpty()`"
+      ],
+      "correct": [
+        0,
+        3,
+        5
+      ],
+      "explanation": "`s -> s.isEmpty()` è la forma minima con return implicito; `(s) -> { return s.isEmpty(); }` usa il blocco con return e punto e virgola; `(var s) -> ...` è valido da Java 11 ma richiede le parentesi. Il blocco senza return non restituisce il boolean richiesto da `test` (\"bad return type\"), un parametro tipizzato senza parentesi non compila e nel blocco manca il `;` dopo il return.",
+      "source": "JSE17 DEV - 10 Lambda Expression"
+    },
+    {
+      "id": "lambda-002",
+      "difficulty": 1,
+      "prompt": "Which functional interface in java.util.function represents an operation that takes no arguments and returns a result?",
+      "code": null,
+      "options": [
+        "Consumer<T>",
+        "Function<T, R>",
+        "Predicate<T>",
+        "Supplier<T>",
+        "UnaryOperator<T>"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`Supplier<T>` ha il metodo `T get()`, cioè () -> T. `Consumer<T>` prende un argomento e non restituisce nulla (T -> void), `Function<T,R>` trasforma T in R, `Predicate<T>` restituisce un boolean e `UnaryOperator<T>` è una `Function<T,T>`: tutti richiedono un argomento.",
+      "source": "JSE17 DEV - 10 Lambda Expression"
+    },
+    {
+      "id": "lambda-003",
+      "difficulty": 3,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.function.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        int limit = 5;\n        limit++;\n        Predicate<Integer> p = n -> n > limit;\n        System.out.println(p.test(7));\n    }\n}",
+      "options": [
+        "true",
+        "false",
+        "Compilation fails.",
+        "An exception is thrown at runtime."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Una variabile locale usata in una lambda deve essere final o effectively final. `limit` viene modificata con `limit++` prima della lambda, quindi non è effectively final e il compilatore segnala \"local variables referenced from a lambda expression must be final or effectively final\". Non conta che la modifica avvenga prima della lambda: basta una qualsiasi riassegnazione.",
+      "source": "JSE17 DEV - 10 Lambda Expression"
+    },
+    {
+      "id": "lambda-004",
+      "difficulty": 2,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "public class Test {\n    private int count;\n\n    void go() {\n        int[] local = {0};\n        Runnable r = () -> { count++; local[0] += 10; };\n        r.run();\n        r.run();\n        System.out.println(count + \" \" + local[0]);\n    }\n    public static void main(String[] args) {\n        new Test().go();\n    }\n}",
+      "options": [
+        "0 0",
+        "2 20",
+        "Compilation fails because count is modified inside the lambda.",
+        "Compilation fails because local is modified inside the lambda.",
+        "1 10"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Le variabili di istanza (`count`) non hanno restrizioni dentro una lambda. Per `local` la restrizione riguarda solo il riferimento: l'array non viene riassegnato, quindi è effectively final, mentre modificarne un elemento è lecito. Ogni invocazione di `run()` incrementa `count` di 1 e `local[0]` di 10, quindi dopo due chiamate si ottiene `2 20`.",
+      "source": "JSE17 DEV - 10 Lambda Expression"
+    },
+    {
+      "id": "lambda-005",
+      "difficulty": 2,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.function.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        Predicate<String> p1 = s -> s.length() > 3;\n        Predicate<String> p2 = s -> s.startsWith(\"j\");\n        System.out.println(p1.and(p2.negate()).test(\"java\") + \" \"\n            + p1.or(p2).negate().test(\"abc\"));\n    }\n}",
+      "options": [
+        "true true",
+        "false false",
+        "true false",
+        "false true"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Per \"java\": `p1` è true, `p2` è true, quindi `p2.negate()` è false e `p1.and(...)` dà false. Per \"abc\": `p1` è false (lunghezza 3), `p2` è false, quindi `p1.or(p2)` è false e il `negate()` finale lo trasforma in true. Risultato: `false true`.",
+      "source": "JSE17 DEV - 10 Lambda Expression"
+    },
+    {
+      "id": "lambda-006",
+      "difficulty": 3,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.function.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        Function<Integer, Integer> f = x -> x + 2;\n        Function<Integer, Integer> g = x -> x * 3;\n        System.out.println(f.andThen(g).apply(1) + \" \" + f.compose(g).apply(1));\n    }\n}",
+      "options": [
+        "5 9",
+        "9 5",
+        "9 9",
+        "5 5",
+        "Compilation fails."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`f.andThen(g)` applica prima `f` e poi `g` sul risultato: g(f(1)) = (1 + 2) * 3 = 9. `f.compose(g)` applica prima `g` e poi `f`: f(g(1)) = 1 * 3 + 2 = 5. È facile invertirli: `andThen` segue l'ordine di lettura, `compose` quello della notazione matematica f(g(x)).",
+      "source": "JSE17 DEV - 10 Lambda Expression"
+    },
+    {
+      "id": "lambda-007",
+      "difficulty": 2,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.function.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        BiPredicate<String, String> bp = String::startsWith;\n        Function<String, Integer> fn = Integer::parseInt;\n        Supplier<String> sp = \"java\"::toUpperCase;\n        System.out.println(bp.test(\"lambda\", \"la\") + \" \" + (fn.apply(\"7\") + 1) + \" \" + sp.get());\n    }\n}",
+      "options": [
+        "true 71 JAVA",
+        "false 8 JAVA",
+        "Compilation fails.",
+        "true 8 JAVA",
+        "true 8 java"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`String::startsWith` come `BiPredicate` usa il primo argomento come oggetto e il secondo come parametro: \"lambda\".startsWith(\"la\") è true. `Integer::parseInt` è un riferimento a metodo statico: restituisce 7, e `(fn.apply(\"7\") + 1)` è una somma numerica tra parentesi, quindi 8. `\"java\"::toUpperCase` è un metodo di istanza su un oggetto esistente, compatibile con `Supplier`: restituisce `JAVA`.",
+      "source": "JSE17 DEV - 10 Lambda Expression"
+    },
+    {
+      "id": "lambda-008",
+      "difficulty": 3,
+      "prompt": "Which three statements compile? (Choose three.)",
+      "code": null,
+      "options": [
+        "`Supplier<Integer> s = \"ciao\"::length;`",
+        "`Supplier<Integer> s = String::length;`",
+        "`Function<String, Integer> f = String::length;`",
+        "`BiFunction<String, String, Boolean> b = \"java\"::startsWith;`",
+        "`UnaryOperator<String> u = String::toUpperCase;`",
+        "`Predicate<String> p = String::startsWith;`"
+      ],
+      "correct": [
+        0,
+        2,
+        4
+      ],
+      "explanation": "`\"ciao\"::length` è legato a un oggetto esistente e non richiede argomenti: va bene per `Supplier`. `String::length` tramite la classe richiede la stringa come argomento, quindi va bene per `Function<String,Integer>` ma non per `Supplier`. `String::toUpperCase` è String -> String, compatibile con `UnaryOperator<String>`. `\"java\"::startsWith` prende un solo argomento, mentre `BiFunction` ne fornisce due; `String::startsWith` tramite la classe richiede due stringhe, mentre `Predicate` ne fornisce una sola.",
+      "source": "JSE17 DEV - 10 Lambda Expression"
+    },
+    {
+      "id": "lambda-009",
+      "difficulty": 3,
+      "prompt": "Which two types, inserted in place of the comment, allow the code to compile and print 3? (Choose two.)",
+      "code": "import java.util.function.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        /* INSERT TYPE HERE */ f = d -> (int) Math.round(d);\n        System.out.println(f.applyAsInt(2.6));\n    }\n}",
+      "options": [
+        "IntFunction<Double>",
+        "DoubleToIntFunction",
+        "Function<Double, Integer>",
+        "ToIntFunction<Double>",
+        "DoubleFunction<Integer>",
+        "IntToDoubleFunction"
+      ],
+      "correct": [
+        1,
+        3
+      ],
+      "explanation": "Il metodo `applyAsInt` che riceve un valore decimale appartiene a `DoubleToIntFunction` (`int applyAsInt(double)`) e a `ToIntFunction<Double>` (`int applyAsInt(Double)`, con autoboxing di 2.6). `Function` e `DoubleFunction` hanno il metodo `apply`, `IntFunction` e `IntToDoubleFunction` ricevono un int (e non hanno `applyAsInt`). `Math.round(2.6)` restituisce 3.",
+      "source": "JSE17 DEV - 10 Lambda Expression"
+    },
+    {
+      "id": "lambda-010",
+      "difficulty": 2,
+      "prompt": "Which two interfaces compile when annotated with @FunctionalInterface? (Choose two.)",
+      "code": null,
+      "options": [
+        "`interface B { }`",
+        "`interface A { void a(); default void b() { } }`",
+        "`interface C { void a(); void b(); }`",
+        "`interface E extends Runnable { void c(); }`",
+        "`interface D { int compute(int x); String toString(); boolean equals(Object o); }`",
+        "`interface F { static void s() { } }`"
+      ],
+      "correct": [
+        1,
+        4
+      ],
+      "explanation": "Un'interfaccia funzionale deve avere esattamente un metodo astratto. In `A` il metodo default non conta; in `D` `toString()` ed `equals(Object)` ridichiarano metodi pubblici di `Object` e non contano, quindi resta solo `compute`. `B` e `F` non hanno metodi astratti, `C` ne ha due ed `E` eredita `run()` da `Runnable` e aggiunge `c()`, quindi ne ha due.",
+      "source": "JSE17 DEV - 10 Lambda Expression"
+    },
+    {
+      "id": "lambda-011",
+      "difficulty": 1,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.function.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        String s = \"hello\";\n        Predicate<String> p = s -> s.isEmpty();\n        System.out.println(p.test(s));\n    }\n}",
+      "options": [
+        "true",
+        "false",
+        "Compilation fails.",
+        "A NullPointerException is thrown at runtime."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "I parametri di una lambda condividono lo scope del metodo che la contiene: non possono avere lo stesso nome di una variabile locale già dichiarata. Il parametro `s` ridefinisce la variabile locale `s` e il compilatore segnala \"variable s is already defined\". Rinominando il parametro, il codice stamperebbe false.",
+      "source": "JSE17 DEV - 10 Lambda Expression"
+    },
+    {
+      "id": "lambda-012",
+      "difficulty": 1,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.function.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        BiFunction<Integer, Integer, Integer> add = Integer::sum;\n        UnaryOperator<Integer> square = x -> x * x;\n        System.out.println(add.andThen(square).apply(2, 3));\n    }\n}",
+      "options": [
+        "13",
+        "5",
+        "25",
+        "Compilation fails.",
+        "10"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`Integer::sum` è compatibile con `BiFunction<Integer,Integer,Integer>`. `BiFunction.andThen` accetta una `Function` e la applica al risultato: `UnaryOperator<Integer>` estende `Function<Integer,Integer>`, quindi è accettato. Si calcola prima 2 + 3 = 5 e poi 5 * 5 = 25.",
+      "source": "JSE17 DEV - 10 Lambda Expression"
+    },
+    {
+      "id": "lambda-013",
+      "difficulty": 1,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.*;\nimport java.util.function.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        Supplier<List<String>> s = ArrayList::new;\n        List<String> a = s.get();\n        List<String> b = s.get();\n        a.add(\"x\");\n        System.out.println(a.size() + \" \" + b.size());\n    }\n}",
+      "options": [
+        "1 1",
+        "1 0",
+        "0 0",
+        "Compilation fails."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`ArrayList::new` è un riferimento al costruttore senza parametri, compatibile con `Supplier` (() -> T). Ogni chiamata a `get()` invoca il costruttore e crea una nuova lista, quindi `a` e `b` sono oggetti distinti: aggiungere un elemento ad `a` non modifica `b`.",
+      "source": "JSE17 DEV - 10 Lambda Expression"
+    },
+    {
+      "id": "lambda-014",
+      "difficulty": 3,
+      "prompt": "Which line causes a compilation error?",
+      "code": "import java.util.function.*;\n\nclass Util {\n    static boolean isLong(String s) { return s.length() > 3; }\n    boolean isShort(String s) { return s.length() < 3; }\n}\npublic class Test {\n    public static void main(String[] args) {\n        Predicate<String> p1 = Util::isLong;                 // line 1\n        Predicate<String> p2 = new Util()::isShort;          // line 2\n        Predicate<String> p3 = Util::isShort;                // line 3\n        BiPredicate<Util, String> p4 = Util::isShort;        // line 4\n        System.out.println(p1.test(\"abcd\") + \" \" + p2.test(\"ab\"));\n    }\n}",
+      "options": [
+        "line 1",
+        "line 2",
+        "line 4",
+        "None; the code prints true true",
+        "line 3"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "La riga 1 referenzia un metodo statico che prende una String: va bene per `Predicate<String>`. La riga 2 usa un metodo di istanza su un oggetto esistente, anch'esso String -> boolean. Alla riga 3 `isShort` è un metodo di istanza referenziato tramite la classe: servirebbero due argomenti (l'oggetto `Util` e la String), ma `Predicate` ne fornisce uno solo, quindi \"invalid method reference\". La riga 4 è corretta proprio perché `BiPredicate<Util,String>` fornisce entrambi.",
+      "source": "JSE17 DEV - 10 Lambda Expression"
+    },
+    {
+      "id": "lambda-015",
+      "difficulty": 2,
+      "prompt": "Which two lambda expressions can be assigned to a variable of type BiFunction<Integer, Integer, Integer>? (Choose two.)",
+      "code": null,
+      "options": [
+        "`(var a, b) -> a + b`",
+        "`(Integer a, b) -> a + b`",
+        "`(var a, var b) -> a + b`",
+        "`(a, var b) -> a + b`",
+        "`(final var a, final var b) -> a + b`"
+      ],
+      "correct": [
+        2,
+        4
+      ],
+      "explanation": "I parametri di una lambda devono essere tutti senza tipo, tutti con tipo esplicito oppure tutti dichiarati con `var`: non si possono mescolare le forme, quindi le opzioni con un solo `var` o un solo tipo esplicito non compilano (\"invalid lambda parameter declaration\"). `(var a, var b)` è valido e, come per i tipi espliciti, è ammesso anche il modificatore `final`.",
+      "source": "JSE17 DEV - 10 Lambda Expression"
+    }
+  ]
+}

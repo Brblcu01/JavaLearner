@@ -1,0 +1,316 @@
+{
+  "topic": "basics",
+  "keyPoints": [
+    {
+      "title": "Identificatori legali",
+      "body": "Un identificatore può iniziare solo con una lettera, `_` o un simbolo di valuta (`$`, `€`...), mai con una cifra; dopo il primo carattere sono ammesse anche le cifre. Sono vietati i caratteri di punteggiatura (`-`, `#`, `.`, `:`) e le keyword. I nomi di classe come `String` invece sono identificatori leciti: `String String = \"x\";` compila."
+    },
+    {
+      "title": "Struttura del file sorgente",
+      "body": "Un file `.java` può contenere al massimo una classe pubblica top-level e, se c'è, il file deve chiamarsi come lei; senza classi pubbliche il nome del file è libero. L'eventuale `package` deve essere la prima istruzione non commentata, seguito dagli `import` e poi dalle classi. `java.lang` è importato di default e `import nomepackage.*` NON importa i sottopackage."
+    },
+    {
+      "title": "Import statiche",
+      "body": "La sintassi corretta è `import static java.lang.Math.PI;` oppure `import static java.lang.Math.*;`: la forma `static import` non compila e l'import statico deve indicare un membro (o `*`), non solo la classe. Se due import statici portano un membro con lo stesso nome (es. `MAX_VALUE` di `Integer` e `Long`) l'uso del nome semplice è ambiguo e non compila."
+    },
+    {
+      "title": "default vs protected",
+      "body": "Le classi top-level possono essere solo `public` o package (default). Un membro default è visibile solo nello stesso package; un membro `protected` è visibile nel package più le sottoclassi. Fuori dal package, la sottoclasse accede al membro protected solo per ereditarietà (`this.x` o tramite riferimento del proprio tipo), NON tramite un riferimento di tipo superclasse: `new Parent().x` non compila."
+    },
+    {
+      "title": "Inizializzazione delle variabili",
+      "body": "Le variabili locali non hanno valore di default: usarle senza un'assegnazione certa è un errore di compilazione (`might not have been initialized`). Le variabili statiche e d'istanza hanno sempre un default (`0`, `false`, `'\\u0000'`, `null`). Un riferimento `final` non può essere riassegnato, ma l'oggetto puntato può essere modificato: non esistono oggetti final."
+    },
+    {
+      "title": "Ordine dei blocchi di inizializzazione",
+      "body": "I blocchi `static` partono una sola volta al caricamento della classe (prima la superclasse); i blocchi d'istanza partono a ogni `new`, dopo `super()` e prima del corpo del costruttore. Blocchi e inizializzatori di campo vengono eseguiti nell'ordine in cui compaiono nel sorgente: un blocco scritto prima della dichiarazione `static int c = 1;` viene sovrascritto da quella assegnazione."
+    },
+    {
+      "title": "Il metodo main",
+      "body": "La firma dell'entry point è `public static void main(String[] args)`: sono ammessi `String... args`, `String args[]`, l'ordine `static public` e il modificatore extra `final`. Cambiando tipo di ritorno, visibilità o parametri il metodo non è più l'entry point e l'avvio fallisce a runtime. Senza argomenti `args` non è `null` ma ha `length` 0; gli argomenti tra virgolette contano come uno solo."
+    },
+    {
+      "title": "Garbage Collector",
+      "body": "Un oggetto è eleggibile quando nessun thread attivo può più raggiungerlo; anche un'isola di oggetti che si referenziano a vicenda è eleggibile. `System.gc()` e `Runtime.getRuntime().gc()` sono solo richieste: la JVM può ignorarle e non è garantito che gli oggetti vengano rimossi. È garantito solo che il GC venga tentato prima di un `OutOfMemoryError`."
+    }
+  ],
+  "questions": [
+    {
+      "id": "basics-001",
+      "difficulty": 1,
+      "prompt": "Which are valid Java identifiers? (Choose three.)",
+      "code": null,
+      "options": [
+        "`_count`",
+        "`2ndValue`",
+        "`$price`",
+        "`my-var`",
+        "`class`",
+        "`String`"
+      ],
+      "correct": [
+        0,
+        2,
+        5
+      ],
+      "explanation": "Un identificatore può iniziare con una lettera, `_` o un simbolo di valuta: `_count` e `$price` sono validi. `String` è il nome di una classe, non una keyword, quindi può essere usato come identificatore (`String String = \"x\";` compila, anche se è sconsigliato). `2ndValue` inizia con una cifra, `my-var` contiene il carattere `-` (interpretato come operatore) e `class` è una keyword riservata.",
+      "source": "JSE17 DEV - 1 Java Basics"
+    },
+    {
+      "id": "basics-002",
+      "difficulty": 1,
+      "prompt": "Which statement about Java source files is true?",
+      "code": null,
+      "options": [
+        "A source file can contain two public top-level classes if both declare a main method.",
+        "The import statements must appear before the package statement.",
+        "A source file that contains no public top-level class may have any valid name.",
+        "A source file can contain at most one top-level class."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Il nome del file è vincolato solo se il file contiene una classe pubblica (che deve chiamarsi come il file); senza classi pubbliche il nome è libero. Un file può avere 0 o 1 classe pubblica ma un numero qualsiasi di classi non pubbliche, quindi l'ultima opzione è falsa. Il `package` deve essere la prima istruzione non commentata e gli `import` vanno dopo, non prima.",
+      "source": "JSE17 DEV - 1 Java Basics"
+    },
+    {
+      "id": "basics-003",
+      "difficulty": 2,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Counter {\n    static { count = 20; }\n    static int count = 1;\n    { name = \"init\"; }\n    String name = \"field\";\n    public static void main(String[] args) {\n        System.out.println(count + \" \" + new Counter().name);\n    }\n}",
+      "options": [
+        "20 init",
+        "20 field",
+        "1 init",
+        "1 field",
+        "Compilation fails."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Blocchi di inizializzazione e inizializzatori dei campi vengono eseguiti nell'ordine in cui compaiono nel sorgente. Il blocco statico assegna 20 a `count`, ma subito dopo l'inizializzatore `count = 1` lo sovrascrive. Allo stesso modo il blocco d'istanza assegna \"init\" e poi l'inizializzatore del campo assegna \"field\". Il codice compila perché in un blocco è lecito assegnare (non leggere) un campo dichiarato più in basso. Stampa `1 field`.",
+      "source": "JSE17 DEV - 1 Java Basics"
+    },
+    {
+      "id": "basics-004",
+      "difficulty": 3,
+      "prompt": "What is the output of the following code?",
+      "code": "class Base {\n    static { System.out.print(\"A\"); }\n    { System.out.print(\"B\"); }\n    Base() { System.out.print(\"C\"); }\n}\npublic class Derived extends Base {\n    static { System.out.print(\"D\"); }\n    { System.out.print(\"E\"); }\n    Derived() { System.out.print(\"F\"); }\n    public static void main(String[] args) {\n        System.out.print(\"M\");\n        new Derived();\n        new Derived();\n    }\n}",
+      "options": [
+        "MADBCEFBCEF",
+        "ADMBCEFBCEF",
+        "ADMBECFBECF",
+        "ADMBCEF",
+        "DAMBCEFBCEF"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Per eseguire `main` la JVM carica `Derived` e quindi prima la superclasse `Base`: i blocchi statici partono una sola volta, prima `A` poi `D`, e solo dopo viene stampato `M`. Ad ogni `new Derived()` viene eseguito `super()`: blocco d'istanza di `Base` (`B`), costruttore di `Base` (`C`), poi blocco d'istanza di `Derived` (`E`) e corpo del costruttore (`F`). Con due oggetti la sequenza `BCEF` si ripete: `ADMBCEFBCEF`. Il blocco d'istanza parte dopo `super()` ma prima del corpo del costruttore della stessa classe, quindi `BECF` è errato.",
+      "source": "JSE17 DEV - 1 Java Basics"
+    },
+    {
+      "id": "basics-005",
+      "difficulty": 3,
+      "prompt": "Given the two files, which lines in Cow cause a compilation error? (Choose two.)",
+      "code": "// File com/zoo/Animal.java\npackage com.zoo;\npublic class Animal {\n    protected int legs = 4;\n    int age = 2;\n}\n\n// File com/farm/Cow.java\npackage com.farm;\nimport com.zoo.Animal;\npublic class Cow extends Animal {\n    void test() {\n        System.out.println(legs);      // line 1\n        Animal a = new Animal();\n        System.out.println(a.legs);    // line 2\n        Cow c = new Cow();\n        System.out.println(c.legs);    // line 3\n        System.out.println(age);       // line 4\n    }\n}",
+      "options": [
+        "line 1",
+        "line 2",
+        "line 3",
+        "line 4"
+      ],
+      "correct": [
+        1,
+        3
+      ],
+      "explanation": "`Cow` è in un package diverso da `Animal`: può accedere al membro `protected` solo tramite ereditarietà. `legs` (cioè `this.legs`) e `c.legs` (riferimento del tipo della sottoclasse stessa) compilano. `a.legs` invece usa un riferimento di tipo `Animal`: fuori dal package questo accesso non è ammesso (`legs has protected access in Animal`). `age` ha accesso default (package) e non è visibile né ereditato fuori da `com.zoo`, quindi anche la line 4 non compila.",
+      "source": "JSE17 DEV - 1 Java Basics"
+    },
+    {
+      "id": "basics-006",
+      "difficulty": 1,
+      "prompt": "The class is compiled and then run with the command `java Echo one \"two three\" four`. What is the output?",
+      "code": "public class Echo {\n    public static void main(String[] args) {\n        System.out.println(args.length + \" \" + args[1]);\n    }\n}",
+      "options": [
+        "4 two",
+        "3 two",
+        "3 two three",
+        "4 three",
+        "An ArrayIndexOutOfBoundsException is thrown."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Gli argomenti della riga di comando sono separati da spazi, ma un testo racchiuso tra virgolette costituisce un unico argomento. `args` contiene quindi `one`, `two three` e `four`: `args.length` vale 3 e `args[1]` è `two three` (gli indici partono da 0). Il nome della classe non fa parte di `args`.",
+      "source": "JSE17 DEV - 1 Java Basics"
+    },
+    {
+      "id": "basics-007",
+      "difficulty": 2,
+      "prompt": "Which method declarations can be used as the entry point of a standalone Java SE 17 application? (Choose three.)",
+      "code": null,
+      "options": [
+        "`public static int main(String[] args)`",
+        "`public static void main(String[] args)`",
+        "`private static void main(String[] args)`",
+        "`static public final void main(String... params)`",
+        "`public static void main(String args[])`",
+        "`public static void main(String args)`"
+      ],
+      "correct": [
+        1,
+        3,
+        4
+      ],
+      "explanation": "L'entry point deve essere `public static void main` con un unico parametro di tipo array di `String`. L'ordine `static public` è indifferente, `final` è l'unico modificatore extra ammesso, il nome del parametro è libero e sia `String... params` (varargs) sia `String args[]` sono array di `String`. Con tipo di ritorno `int`, visibilità `private` o parametro `String` il metodo compila ma non è più il main: lanciando la classe si ottiene un errore a runtime (`Main method not found`).",
+      "source": "JSE17 DEV - 1 Java Basics"
+    },
+    {
+      "id": "basics-008",
+      "difficulty": 2,
+      "prompt": "How many Node objects are eligible for garbage collection when execution reaches line X and line Y, respectively?",
+      "code": "public class Node {\n    Node next;\n    public static void main(String[] args) {\n        Node a = new Node();\n        Node b = new Node();\n        Node c = new Node();\n        a.next = b;\n        b.next = c;\n        c.next = a;\n        a = null;\n        b = null;\n        // line X\n        c = null;\n        // line Y\n    }\n}",
+      "options": [
+        "2 and 3",
+        "2 and 0",
+        "0 and 3",
+        "3 and 3"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Alla line X la variabile locale `c` raggiunge ancora il terzo oggetto, che tramite `next` raggiunge il primo, che a sua volta raggiunge il secondo: tutti e tre sono raggiungibili da un thread attivo, quindi nessuno è eleggibile. Dopo `c = null` i tre oggetti si referenziano solo tra di loro: formano un'isola di oggetti e sono tutti e 3 eleggibili. Un riferimento circolare non impedisce la raccolta da parte del GC.",
+      "source": "JSE17 DEV - 1 Java Basics"
+    },
+    {
+      "id": "basics-009",
+      "difficulty": 1,
+      "prompt": "Which statement about garbage collection is true?",
+      "code": null,
+      "options": [
+        "Calling `System.gc()` forces the JVM to run the garbage collector immediately.",
+        "Two objects that refer only to each other can never be garbage collected.",
+        "An object becomes eligible as soon as one of its fields is set to `null`.",
+        "Calling `System.gc()` is only a request that the JVM may ignore."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Solo la JVM decide quando eseguire il GC: `System.gc()` (come `Runtime.getRuntime().gc()`) è solo un suggerimento e non garantisce né l'avvio né la rimozione degli oggetti. Gli oggetti che si referenziano a vicenda ma non sono raggiungibili da thread attivi (isole) sono eleggibili. Mettere a `null` un campo di un oggetto non rende eleggibile l'oggetto stesso, che resta raggiungibile.",
+      "source": "JSE17 DEV - 1 Java Basics"
+    },
+    {
+      "id": "basics-010",
+      "difficulty": 3,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import static java.lang.Integer.*;\nimport static java.lang.Long.*;\n\npublic class Limits {\n    public static void main(String[] args) {\n        System.out.println(parseInt(\"12\")); // line 1\n        System.out.println(MAX_VALUE);      // line 2\n    }\n}",
+      "options": [
+        "12 followed by 2147483647",
+        "12 followed by 9223372036854775807",
+        "Compilation fails only because of line 1",
+        "Compilation fails only because of line 2",
+        "Compilation fails because of both lines"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "I due import statici con `*` sono di per sé leciti. `parseInt` esiste solo in `Integer` (in `Long` c'è `parseLong`), quindi la line 1 non è ambigua. `MAX_VALUE` invece è importato sia da `Integer` sia da `Long`: usarlo con il nome semplice produce l'errore `reference to MAX_VALUE is ambiguous`. Per risolvere bisogna qualificarlo, es. `Integer.MAX_VALUE`.",
+      "source": "JSE17 DEV - 1 Java Basics"
+    },
+    {
+      "id": "basics-011",
+      "difficulty": 2,
+      "prompt": "Which import statements compile? (Choose two.)",
+      "code": null,
+      "options": [
+        "`static import java.lang.Math.PI;`",
+        "`import static java.lang.Math.PI;`",
+        "`import java.lang.Math.PI;`",
+        "`import static java.lang.Math;`",
+        "`import static java.lang.Math.*;`"
+      ],
+      "correct": [
+        1,
+        4
+      ],
+      "explanation": "La sintassi corretta è `import static`, non `static import`. Un import statico importa un membro statico specifico (`Math.PI`) oppure tutti i membri statici con `*`. Un import normale non può importare un campo (`import java.lang.Math.PI;` non trova il tipo `PI`) e un import statico deve indicare un membro, non soltanto la classe (`import static java.lang.Math;` non compila).",
+      "source": "JSE17 DEV - 1 Java Basics"
+    },
+    {
+      "id": "basics-012",
+      "difficulty": 2,
+      "prompt": "What is the result of compiling and running the following code with no arguments?",
+      "code": "public class Init {\n    static int s;\n    int i;\n    public static void main(String[] args) {\n        int local;\n        Init obj = new Init();\n        boolean flag = args.length > 5;\n        if (flag) local = 10;\n        System.out.println(s + obj.i + local);\n    }\n}",
+      "options": [
+        "0",
+        "10",
+        "An exception is thrown at runtime.",
+        "Compilation fails.",
+        "The code compiles but prints nothing."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "I campi `s` (statico) e `i` (d'istanza) hanno il valore di default 0, ma le variabili locali non hanno mai un valore di default. Poiché `local` viene assegnata solo dentro un `if` la cui condizione non è una costante, il compilatore non può garantire che sia inizializzata e segnala `variable local might not have been initialized`. Il problema si rileva in compilazione, non a runtime.",
+      "source": "JSE17 DEV - 1 Java Basics"
+    },
+    {
+      "id": "basics-013",
+      "difficulty": 2,
+      "prompt": "Which statements, inserted independently at line X, allow the code to compile? (Choose two.)",
+      "code": "public class Holder {\n    final StringBuilder sb = new StringBuilder(\"a\");\n    final int n;\n    Holder() { n = 1; }\n    public static void main(String[] args) {\n        Holder h = new Holder();\n        h.sb.append(\"b\");\n        // line X\n        System.out.println(h.sb + \" \" + h.n);\n    }\n}",
+      "options": [
+        "`h.sb = new StringBuilder(\"c\");`",
+        "`h.sb.append(\"c\");`",
+        "`h.n++;`",
+        "`h.n = 2;`",
+        "`h.sb.setLength(0);`"
+      ],
+      "correct": [
+        1,
+        4
+      ],
+      "explanation": "Un riferimento `final` non può puntare a un altro oggetto, ma l'oggetto referenziato resta modificabile: `append` e `setLength` cambiano lo stato dello `StringBuilder` e compilano. `h.sb = new StringBuilder(...)` riassegna il riferimento final e non compila. `n` è un primitivo final già inizializzato nel costruttore, quindi sia `h.n++` sia `h.n = 2` producono `cannot assign a value to final variable n`.",
+      "source": "JSE17 DEV - 1 Java Basics"
+    },
+    {
+      "id": "basics-014",
+      "difficulty": 3,
+      "prompt": "What is the output of the following code?",
+      "code": "public class Shadow {\n    static int x = 5;\n    int y = 7;\n    public static void main(String[] args) {\n        int x = 10;\n        Shadow s = new Shadow();\n        s.change(x);\n        System.out.println(x + \" \" + Shadow.x + \" \" + s.y);\n    }\n    void change(int x) {\n        x++;\n        Shadow.x = x;\n        y = this.y + x;\n    }\n}",
+      "options": [
+        "11 11 18",
+        "10 5 7",
+        "10 11 17",
+        "10 11 18",
+        "11 5 18"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "In `main` la variabile locale `x` (10) oscura (shadowing) il campo statico. A `change` viene passata una copia del valore: il parametro `x` diventa 11 ma la variabile locale di `main` resta 10. `Shadow.x = x` assegna 11 al campo statico, mentre `y = this.y + x` calcola 7 + 11 = 18. Viene stampato `10 11 18`.",
+      "source": "JSE17 DEV - 1 Java Basics"
+    },
+    {
+      "id": "basics-015",
+      "difficulty": 3,
+      "prompt": "Which class declarations compile? (Choose two.)",
+      "code": null,
+      "options": [
+        "`abstract class A { private abstract void m(); }`",
+        "`abstract class A { static abstract void m(); }`",
+        "`abstract class A { abstract void m(); }`",
+        "`final abstract class A { }`",
+        "`abstract class A { protected abstract void m() throws Exception; }`",
+        "`abstract class A { abstract void m() { } }`"
+      ],
+      "correct": [
+        2,
+        4
+      ],
+      "explanation": "Un metodo abstract termina con `;` e può dichiarare una clausola `throws` e qualsiasi accesso tranne `private`. Non può essere `private` (non sarebbe visibile alle sottoclassi che devono implementarlo), né `static`, né `final`, né avere un corpo `{ }`. Una classe non può essere sia `final` (non estendibile) sia `abstract` (non istanziabile): il compilatore segnala `illegal combination of modifiers`.",
+      "source": "JSE17 DEV - 1 Java Basics"
+    }
+  ]
+}

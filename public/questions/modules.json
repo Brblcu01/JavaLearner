@@ -1,0 +1,313 @@
+{
+  "topic": "modules",
+  "keyPoints": [
+    {
+      "title": "requires vuole moduli, exports vuole package",
+      "body": "`requires` è seguito dal nome di un MODULO, `exports` dal nome di un PACKAGE. Non si possono esportare singole classi, non si usa l'asterisco (`exports com.app.*;` non compila) e ogni direttiva indica un solo elemento. `requires java.base` è implicito in ogni modulo. Le dipendenze cicliche tra moduli (A requires B, B requires A) sono un errore di compilazione."
+    },
+    {
+      "title": "requires transitive",
+      "body": "Se `com.ui` dichiara `requires transitive com.core`, ogni modulo che fa `requires com.ui` legge automaticamente anche `com.core` (leggibilità implicita). Con un semplice `requires com.core` nel modulo intermedio, il modulo client non vede i package di `com.core` e la compilazione fallisce, a meno che non dichiari esso stesso `requires com.core`. Un modulo non può esportare un package che appartiene a un altro modulo."
+    },
+    {
+      "title": "requires static: dipendenza opzionale",
+      "body": "Con `requires static` il modulo deve essere presente a compile-time ma è facoltativo a runtime. Il modulo richiesto non viene inserito nel grafo all'avvio, anche se si trova nel module path: va aggiunto con `--add-modules`, altrimenti l'uso delle sue classi provoca `NoClassDefFoundError`. Con un normale `requires` il modulo deve esistere sia a compile-time sia a runtime."
+    },
+    {
+      "title": "exports ... to e opens",
+      "body": "`exports pkg to mod1, mod2;` è un export qualificato: solo i moduli elencati vedono il package; `to all` e `to *` non esistono. `opens pkg;` (o `opens pkg to mod;`) consente la reflection profonda a runtime, anche sui membri privati, ma NON dà accesso a compile-time: un modulo che importa un package solo aperto non compila. `opens exports pkg;` non è una sintassi valida."
+    },
+    {
+      "title": "Servizi: uses e provides",
+      "body": "Il consumer dichiara `uses Interfaccia;` e ottiene le implementazioni con `ServiceLoader.load(Interfaccia.class)`; compila anche senza provider (ad esempio `findFirst()` restituisce un Optional vuoto). Senza `uses`, `ServiceLoader` lancia `ServiceConfigurationError` a runtime. Il provider dichiara `provides Interfaccia with Implementazione;`: l'implementazione deve essere pubblica, non astratta e avere un costruttore pubblico senza argomenti, oppure un metodo `public static provider()` che restituisce il servizio, altrimenti la compilazione fallisce."
+    },
+    {
+      "title": "Named, automatic e unnamed module",
+      "body": "Un modulo named ha `module-info`. Un JAR senza `module-info` nel MODULE PATH diventa un modulo automatico: esporta tutti i package, legge tutti i moduli e il suo nome deriva dal nome del file senza versione, con i trattini convertiti in punti (`mysql-driver-6.0.jar` diventa `mysql.driver`), salvo `Automatic-Module-Name` nel MANIFEST. Un JAR nel CLASSPATH finisce nel modulo unnamed, che legge tutti i moduli ma non può essere richiesto (`requires`) da un modulo named."
+    },
+    {
+      "title": "Compilare ed eseguire da riga di comando",
+      "body": "`javac --module-source-path src -d out --module com.shop`: il module source path punta alla directory PADRE della cartella del modulo, e con `--module`/`-m` l'opzione `-d` è obbligatoria. Per eseguire: `java --module-path out --module com.shop/com.shop.Main` oppure la forma compatta `java -p out -m com.shop/com.shop.Main` (separatore `/` tra modulo e classe). Il nome della classe si può omettere se il JAR modulare dichiara la Main-Class."
+    },
+    {
+      "title": "Strumenti: jdeps, jlink, jmod e opzioni di java",
+      "body": "`jdeps` analizza class file o JAR e ne elenca le dipendenze (con `--jdk-internals` trova gli usi delle API interne del JDK). `jlink` crea un'immagine runtime personalizzata con i soli moduli necessari. `jmod` crea e gestisce gli archivi `.jmod`. `java --list-modules` elenca i moduli disponibili, `--show-module-resolution` mostra la risoluzione del grafo e `--describe-module` descrive un solo modulo senza seguirne le dipendenze."
+    }
+  ],
+  "questions": [
+    {
+      "id": "modules-001",
+      "difficulty": 1,
+      "prompt": "Which module-info.java directive makes the public types of a package accessible to code in other modules at both compile time and runtime?",
+      "code": null,
+      "options": [
+        "requires",
+        "opens",
+        "uses",
+        "exports",
+        "provides"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`exports` rende accessibili ad altri moduli i tipi pubblici (e i membri protected) di un package, sia in compilazione sia in esecuzione. `requires` dichiara una dipendenza da un altro modulo, `opens` concede solo l'accesso riflessivo a runtime, `uses` e `provides` riguardano i servizi.",
+      "source": "JSE17 DEV - 12 Java Module System"
+    },
+    {
+      "id": "modules-002",
+      "difficulty": 1,
+      "prompt": "A JAR file named mysql-driver-6.0.jar does not contain a module-info.class file and is placed on the module path. What is the name of the resulting automatic module?",
+      "code": null,
+      "options": [
+        "mysql-driver-6.0",
+        "mysql.driver",
+        "mysql.driver.6.0",
+        "mysql-driver"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Il nome di un modulo automatico deriva dal nome del file JAR: si elimina l'estensione `.jar` e il numero di versione finale (`-6.0`), poi i caratteri non alfanumerici come il trattino diventano punti. Risultato: `mysql.driver`. Un nome con il trattino non è un nome di modulo valido. Il nome può anche essere imposto con `Automatic-Module-Name` nel MANIFEST.MF.",
+      "source": "JSE17 DEV - 12 Java Module System"
+    },
+    {
+      "id": "modules-003",
+      "difficulty": 2,
+      "prompt": "Given the three modules below, compiling module com.app fails. Which changes, each applied independently, allow com.app to compile? (Choose two.)",
+      "code": "// src/com.core/module-info.java\nmodule com.core {\n    exports com.core.model;\n}\n\n// src/com.ui/module-info.java\nmodule com.ui {\n    requires com.core;\n    exports com.ui.view;\n}\n\n// src/com.app/module-info.java\nmodule com.app {\n    requires com.ui;\n}\n\n// src/com.app/com/app/Main.java\npackage com.app;\nimport com.core.model.Item;\nimport com.ui.view.View;\npublic class Main {\n    public static void main(String[] args) {\n        Item i = new View().item();\n    }\n}",
+      "options": [
+        "Add `exports com.core.model;` to the com.ui module declaration.",
+        "In com.ui, replace `requires com.core;` with `requires transitive com.core;`",
+        "In com.app, replace `requires com.ui;` with `requires transitive com.ui;`",
+        "Add `opens com.core.model;` to the com.core module declaration.",
+        "Add `requires com.core;` to the com.app module declaration."
+      ],
+      "correct": [
+        1,
+        4
+      ],
+      "explanation": "`com.app` usa direttamente `com.core.model.Item`, quindi deve leggere il modulo `com.core`: lo può fare dichiarando `requires com.core` oppure ereditando la leggibilità grazie a `requires transitive com.core` in `com.ui`. Un modulo non può esportare un package di un altro modulo; `requires transitive com.ui` in `com.app` riguarda chi legge `com.app`, non `com.app` stesso; `opens` non dà accesso a compile-time e comunque il problema è la leggibilità del modulo.",
+      "source": "JSE17 DEV - 12 Java Module System"
+    },
+    {
+      "id": "modules-004",
+      "difficulty": 2,
+      "prompt": "Module com.app contains the packages com.app.api (with the interface Service) and com.app.impl (with the class Impl implementing Service). Which directives are valid in the module declaration of com.app? (Choose two.)",
+      "code": null,
+      "options": [
+        "`exports com.app.api;`",
+        "`exports com.app.*;`",
+        "`uses com.app.api.Service with com.app.impl.Impl;`",
+        "`provides com.app.api.Service;`",
+        "`requires static java.sql;`",
+        "`opens exports com.app.api;`"
+      ],
+      "correct": [
+        0,
+        4
+      ],
+      "explanation": "`exports` vuole il nome esatto di un package e `requires static` dichiara una dipendenza obbligatoria solo a compile-time: entrambe sono valide. L'asterisco non è ammesso. `with` appartiene a `provides` (`provides Service with Impl;`), mentre `uses` indica solo l'interfaccia del servizio; `provides` senza `with` non compila. `opens exports` non è una sintassi valida.",
+      "source": "JSE17 DEV - 12 Java Module System"
+    },
+    {
+      "id": "modules-005",
+      "difficulty": 2,
+      "prompt": "The module-info.java file of module com.shop is located in src/com.shop. Which command compiles all classes of the module into the out directory?",
+      "code": null,
+      "options": [
+        "`javac --module-source-path src/com.shop -d out --module com.shop`",
+        "`javac --module-source-path src --module com.shop`",
+        "`javac --module-source-path src -d out --module com.shop`",
+        "`javac -p src -d out com.shop`",
+        "`javac -cp src -d out --module com.shop`"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`--module-source-path` deve puntare alla directory PADRE della cartella del modulo (`src`), e con `--module` serve anche la directory di output `-d` (senza, javac segnala che la class output directory è obbligatoria). Con `src/com.shop` javac non trova il modulo; `-p` indica moduli già compilati, non sorgenti, e `com.shop` verrebbe interpretato come nome di classe; con `-cp` manca il module source path richiesto da `--module`.",
+      "source": "JSE17 DEV - 12 Java Module System"
+    },
+    {
+      "id": "modules-006",
+      "difficulty": 1,
+      "prompt": "The compiled module com.shop is in the out directory and contains the class com.shop.Main with a main method. Which commands run the application? (Choose two.)",
+      "code": null,
+      "options": [
+        "`java -p out -m com.shop.Main`",
+        "`java -cp out -m com.shop/com.shop.Main`",
+        "`java --module-path out --module com.shop/com.shop.Main`",
+        "`java -p out -m com.shop/com.shop.Main`",
+        "`java --module-path out com.shop/com.shop.Main`"
+      ],
+      "correct": [
+        2,
+        3
+      ],
+      "explanation": "Si indica il module path con `--module-path` (forma compatta `-p`) e il modulo principale con `--module` (forma compatta `-m`) nel formato `modulo/classe`. Con `-m com.shop.Main` Java cerca un modulo chiamato `com.shop.Main`; con `-cp` il modulo non si trova nel module path; senza `--module` l'argomento `com.shop/com.shop.Main` viene trattato come nome di classe e non viene trovato.",
+      "source": "JSE17 DEV - 12 Java Module System"
+    },
+    {
+      "id": "modules-007",
+      "difficulty": 2,
+      "prompt": "Which statements about the types of modules are true? (Choose two.)",
+      "code": null,
+      "options": [
+        "A JAR without module-info.class placed on the classpath becomes an automatic module.",
+        "A JAR without module-info.class placed on the module path becomes an automatic module that exports all its packages.",
+        "A named module can declare a requires directive on the unnamed module.",
+        "An automatic module must contain a module-info.class file.",
+        "Code in the unnamed module can use the exported packages of named modules."
+      ],
+      "correct": [
+        1,
+        4
+      ],
+      "explanation": "Un JAR senza descrittore diventa modulo automatico solo se è nel MODULE PATH, e in tal caso esporta tutti i suoi package. Il codice nel classpath finisce nel modulo unnamed, che legge tutti i moduli e può usare i package esportati dai moduli named. Il modulo unnamed non ha nome, quindi nessun modulo named può dichiarare `requires` verso di esso. Un modulo automatico per definizione non ha `module-info.class`.",
+      "source": "JSE17 DEV - 12 Java Module System"
+    },
+    {
+      "id": "modules-008",
+      "difficulty": 3,
+      "prompt": "Given the following modules, what is the result of compiling both modules with javac --module-source-path src -d out --module com.app,com.data?",
+      "code": "// src/com.data/module-info.java\nmodule com.data {\n    opens com.data.model;\n}\n\n// src/com.data/com/data/model/User.java\npackage com.data.model;\npublic class User { private String name = \"ann\"; }\n\n// src/com.app/module-info.java\nmodule com.app {\n    requires com.data;\n}\n\n// src/com.app/com/app/Main.java\npackage com.app;\nimport com.data.model.User;\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println(new User());\n    }\n}",
+      "options": [
+        "Both modules compile, and running Main prints the default toString() of User.",
+        "Both modules compile, but an InaccessibleObjectException is thrown when Main runs.",
+        "Compilation of com.app fails because com.data.model is not exported.",
+        "Compilation of com.data fails because opens must be combined with exports."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`opens` concede l'accesso riflessivo a runtime (anche ai membri privati) ma non rende il package visibile in compilazione. Poiché `com.data.model` non è esportato, javac segnala che il package non è visibile e la compilazione di `com.app` fallisce. Per usare `User` direttamente serve `exports com.data.model;` (eventualmente insieme a `opens`). `opens` può comparire da solo: non va combinato con `exports`.",
+      "source": "JSE17 DEV - 12 Java Module System"
+    },
+    {
+      "id": "modules-009",
+      "difficulty": 3,
+      "prompt": "All three modules below are compiled successfully and placed on the module path. What is the result of running java -p out -m com.app/com.app.Main?",
+      "code": "// module-info.java of com.api\nmodule com.api { exports com.api; }\n// com/api/Greeter.java\npackage com.api;\npublic interface Greeter { String greet(); }\n\n// module-info.java of com.en\nmodule com.en {\n    requires com.api;\n    provides com.api.Greeter with com.en.impl.EnglishGreeter;\n}\n// com/en/impl/EnglishGreeter.java: public class with an implicit\n// no-arg constructor; greet() returns \"Hello\"\n\n// module-info.java of com.app\nmodule com.app {\n    requires com.api;\n}\n// com/app/Main.java\npackage com.app;\nimport com.api.Greeter;\nimport java.util.ServiceLoader;\npublic class Main {\n    public static void main(String[] args) {\n        ServiceLoader<Greeter> loader = ServiceLoader.load(Greeter.class);\n        System.out.println(loader.findFirst().map(Greeter::greet).orElse(\"none\"));\n    }\n}",
+      "options": [
+        "Hello",
+        "none",
+        "Compilation of com.app fails because it does not require com.en.",
+        "A ServiceConfigurationError is thrown at runtime.",
+        "A NoClassDefFoundError is thrown at runtime."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Il consumer non dichiara `uses com.api.Greeter;`. Il codice compila (il compilatore non verifica questa regola), ma a runtime `ServiceLoader.load` controlla che il modulo chiamante dichiari `uses` per quel servizio e lancia `ServiceConfigurationError`. Con `uses` il programma stamperebbe `Hello`, e `none` se nessun provider fosse presente. Il consumer non deve mai richiedere il modulo del provider.",
+      "source": "JSE17 DEV - 12 Java Module System"
+    },
+    {
+      "id": "modules-010",
+      "difficulty": 3,
+      "prompt": "Given the module declaration and service interface below, which implementations of com.en.impl.EnglishGreeter allow module com.en to compile? (Choose two.)",
+      "code": "// com.api module: package com.api, exported\npublic interface Greeter { String greet(); }\n\n// src/com.en/module-info.java\nmodule com.en {\n    requires com.api;\n    provides com.api.Greeter with com.en.impl.EnglishGreeter;\n}",
+      "options": [
+        "`public abstract class EnglishGreeter implements Greeter { public String greet() { return \"Hello\"; } }`",
+        "`public class EnglishGreeter implements Greeter { private EnglishGreeter() { } public String greet() { return \"Hello\"; } }`",
+        "`public class EnglishGreeter implements Greeter { public String greet() { return \"Hello\"; } }`",
+        "`public class EnglishGreeter implements Greeter { public EnglishGreeter(String s) { } public String greet() { return \"Hello\"; } }`",
+        "`public class EnglishGreeter { private EnglishGreeter() { } public static Greeter provider() { return () -> \"Hi\"; } }`"
+      ],
+      "correct": [
+        2,
+        4
+      ],
+      "explanation": "Un service provider deve avere un metodo `public static provider()` senza parametri che restituisce il servizio (in tal caso la classe può anche non implementarlo e avere un costruttore privato), oppure deve implementare il servizio e avere un costruttore pubblico senza argomenti (anche quello di default implicito). javac rifiuta una classe astratta, un costruttore no-arg privato e una classe che ha solo un costruttore con parametri.",
+      "source": "JSE17 DEV - 12 Java Module System"
+    },
+    {
+      "id": "modules-011",
+      "difficulty": 3,
+      "prompt": "Both modules compile and are placed in the out directory. What is the result of running java -p out -m mod.a/pa.A?",
+      "code": "// module-info.java of mod.b\nmodule mod.b { exports pb; }\n// pb/B.java\npackage pb;\npublic class B { public static String hi() { return \"B\"; } }\n\n// module-info.java of mod.a\nmodule mod.a { requires static mod.b; }\n// pa/A.java\npackage pa;\npublic class A {\n    public static void main(String[] args) {\n        System.out.println(\"start\");\n        System.out.println(pb.B.hi());\n    }\n}",
+      "options": [
+        "start followed by B",
+        "start, and then a NoClassDefFoundError is thrown",
+        "The JVM fails to start because module mod.b is not resolved.",
+        "Compilation fails because requires static cannot be used with exported packages."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`requires static` rende la dipendenza obbligatoria solo in compilazione: a runtime `mod.b` non viene aggiunto al grafo dei moduli, anche se si trova nel module path. Viene stampato `start`, poi l'accesso a `pb.B` provoca `NoClassDefFoundError`. Aggiungendo `--add-modules mod.b` il programma stamperebbe anche `B`. La JVM non fallisce all'avvio perché la dipendenza è opzionale.",
+      "source": "JSE17 DEV - 12 Java Module System"
+    },
+    {
+      "id": "modules-012",
+      "difficulty": 2,
+      "prompt": "Which statements about the JDK tools are true? (Choose two.)",
+      "code": null,
+      "options": [
+        "jlink assembles a set of modules and their dependencies into a custom runtime image.",
+        "jmod is the tool used to launch a modular application.",
+        "jdeps with the --jdk-internals option reports dependencies on internal JDK APIs.",
+        "jdeps rewrites module-info.java to add the missing requires directives.",
+        "java --describe-module prints the module and every module in its dependency graph."
+      ],
+      "correct": [
+        0,
+        2
+      ],
+      "explanation": "`jlink` crea un'immagine runtime personalizzata contenente solo i moduli necessari. `jdeps` analizza class file e JAR per individuarne le dipendenze, e con `--jdk-internals` segnala l'uso di API interne del JDK; non modifica alcun file. `jmod` serve a creare e gestire archivi `.jmod`, non a eseguire applicazioni. `--describe-module` descrive solo il modulo indicato, senza seguire il grafo delle dipendenze.",
+      "source": "JSE17 DEV - 12 Java Module System"
+    },
+    {
+      "id": "modules-013",
+      "difficulty": 3,
+      "prompt": "Module com.shop contains the packages com.shop.api and com.shop.internal and is compiled into the out directory. Which lines appear in the output of java -p out --describe-module com.shop? (Choose two.)",
+      "code": "module com.shop {\n    requires transitive java.sql;\n    exports com.shop.api;\n}",
+      "options": [
+        "exports com.shop.internal",
+        "requires java.base mandated",
+        "contains com.shop.api",
+        "contains com.shop.internal",
+        "opens com.shop.api"
+      ],
+      "correct": [
+        1,
+        3
+      ],
+      "explanation": "L'output elenca le direttive del descrittore: `exports com.shop.api`, `requires java.sql transitive` e anche la dipendenza implicita `requires java.base mandated`. I package NON esportati compaiono come `contains`, quindi `contains com.shop.internal`. `com.shop.api` è esportato, perciò compare come `exports` e non come `contains`; non ci sono direttive `opens`.",
+      "source": "JSE17 DEV - 12 Java Module System"
+    },
+    {
+      "id": "modules-014",
+      "difficulty": 1,
+      "prompt": "What is the result of compiling the following modules together with javac --module-source-path src -d out --module mod.a,mod.b?",
+      "code": "// src/mod.a/module-info.java\nmodule mod.a {\n    requires mod.b;\n    exports pa;\n}\n\n// src/mod.b/module-info.java\nmodule mod.b {\n    requires mod.a;\n    exports pb;\n}",
+      "options": [
+        "Compilation fails because of a cyclic dependence between the modules.",
+        "Both modules compile, but the JVM refuses to start when either module is run.",
+        "Both modules compile and can be used normally.",
+        "Compilation succeeds only if one of the directives is changed to requires transitive."
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "Il Module System non ammette dipendenze circolari: se `mod.a` richiede `mod.b` e `mod.b` richiede `mod.a`, javac segnala un errore di \"cyclic dependence\". Usare `requires transitive` non cambia nulla: il ciclo rimane. La soluzione è spostare il codice comune in un terzo modulo.",
+      "source": "JSE17 DEV - 12 Java Module System"
+    },
+    {
+      "id": "modules-015",
+      "difficulty": 2,
+      "prompt": "Given the following modules, which statement is true?",
+      "code": "// src/com.lib/module-info.java\nmodule com.lib {\n    exports com.lib.api to com.client;\n}\n\n// src/com.client/module-info.java\nmodule com.client { requires com.lib; }\n\n// src/com.other/module-info.java\nmodule com.other { requires com.lib; }\n\n// Both com.client and com.other contain a class that calls\n// the public static method com.lib.api.Tool.run()",
+      "options": [
+        "com.lib fails to compile because exports cannot be followed by to.",
+        "Both com.client and com.other compile successfully.",
+        "com.other compiles, but an IllegalAccessError is thrown when it calls Tool.run().",
+        "Only com.other fails to compile, because com.lib.api is exported only to com.client.",
+        "com.client fails to compile because it must also declare requires transitive com.lib."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`exports ... to` è un export qualificato: il package `com.lib.api` è visibile solo ai moduli elencati dopo `to`. `com.client` compila e funziona; per `com.other` il package non è visibile anche se dichiara `requires com.lib`, quindi la compilazione fallisce già a compile-time. Dopo `to` si possono elencare più moduli separati da virgola, ma non `all` o `*`.",
+      "source": "JSE17 DEV - 12 Java Module System"
+    }
+  ]
+}

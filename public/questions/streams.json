@@ -1,0 +1,366 @@
+{
+  "topic": "streams",
+  "keyPoints": [
+    {
+      "title": "Pipeline e lazy evaluation",
+      "body": "Uno stream è composto da sorgente, zero o più operazioni intermedie (`filter`, `map`, `peek`, `sorted`, ...) che restituiscono un nuovo stream, e una sola operazione finale (`forEach`, `collect`, `reduce`, `count`, ...). Le intermedie sono lazy: senza un'operazione finale non viene eseguito nulla, nemmeno le `peek`. `forEach` restituisce void, quindi non si può concatenare altro dopo."
+    },
+    {
+      "title": "Stream monouso e sorgente inalterata",
+      "body": "Dopo l'operazione finale lo stream è chiuso: riusarlo provoca `IllegalStateException: stream has already been operated upon or closed`, ma solo a runtime (il codice compila). Qualunque operazione si faccia sullo stream, la collezione sorgente non viene modificata: `sorted()` o `map()` producono nuovi elementi, non riordinano né cambiano la lista."
+    },
+    {
+      "title": "Operazioni short-circuit",
+      "body": "`anyMatch`, `allMatch`, `noneMatch`, `findFirst`, `findAny` e `limit` sono cortocircuitate: appena il risultato è determinato smettono di esaminare gli elementi. Nelle domande con effetti collaterali (stampe nella lambda) conta proprio fino a quale elemento arriva l'elaborazione."
+    },
+    {
+      "title": "reduce",
+      "body": "Tre forme: `T reduce(T identity, BinaryOperator<T>)`, `Optional<T> reduce(BinaryOperator<T>)` (restituisce Optional perché lo stream potrebbe essere vuoto) e `U reduce(U identity, BiFunction<U,? super T,U>, BinaryOperator<U>)`. L'identity viene usata come valore iniziale; in uno stream parallelo viene applicata a ogni chunk, quindi deve essere neutra (0 per la somma) e l'operazione associativa."
+    },
+    {
+      "title": "Optional",
+      "body": "`Optional.of(null)` lancia `NullPointerException`, `Optional.ofNullable(null)` restituisce un Optional vuoto. `get()` su un Optional vuoto lancia `NoSuchElementException`. `orElse(T)` riceve un valore, `orElseGet(Supplier)` un Supplier, `orElseThrow(Supplier)` lancia l'eccezione fornita. `map` e `filter` su un Optional vuoto restituiscono un Optional vuoto. Le versioni primitive (`OptionalInt`, `OptionalDouble`) usano `getAsInt()`, `getAsDouble()`."
+    },
+    {
+      "title": "Stream primitivi",
+      "body": "`IntStream`, `LongStream` e `DoubleStream` hanno `sum()`, `average()` (restituisce `OptionalDouble`), `max()`/`min()` senza Comparator. `Stream<T>` non ha `sum()`: serve `mapToInt` (o `mapToLong`, `mapToDouble`); `boxed()` fa il percorso inverso. `range(a, b)` esclude b, `rangeClosed(a, b)` lo include."
+    },
+    {
+      "title": "Collectors",
+      "body": "`groupingBy(f)` produce una `Map<K, List<T>>` (di default una HashMap); con un collector a valle (`counting()`, `mapping(...)`) e una map factory (`TreeMap::new`) si cambiano valori e tipo di mappa. `partitioningBy` produce sempre entrambe le chiavi true e false, anche con liste vuote. `toMap` con chiavi duplicate lancia `IllegalStateException` a meno di passare una merge function. `joining(delim, prefix, suffix)` concatena stringhe."
+    },
+    {
+      "title": "Stream paralleli e ordine",
+      "body": "`parallel()` e `sequential()` impostano solo un flag: vince l'ultima invocazione nella pipeline. Su uno stream parallelo `forEach` non garantisce l'ordine, `forEachOrdered` sì; `findAny` può restituire un elemento qualsiasi, `findFirst` il primo nell'ordine di incontro. `flatMap` fonde gli stream prodotti per ogni elemento in un unico stream."
+    }
+  ],
+  "questions": [
+    {
+      "id": "streams-001",
+      "difficulty": 1,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.stream.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        Stream<String> s = Stream.of(\"a\", \"b\", \"c\")\n            .peek(System.out::print)\n            .map(String::toUpperCase);\n        System.out.println(\"done\");\n    }\n}",
+      "options": [
+        "abcdone",
+        "done",
+        "ABCdone",
+        "abcABCdone",
+        "Compilation fails."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`peek` e `map` sono operazioni intermedie e quindi lazy: vengono eseguite solo quando nella pipeline c'è un'operazione finale. Qui lo stream viene solo costruito e assegnato, nessuna operazione finale lo consuma, quindi `peek` non stampa nulla e l'unico output è `done`.",
+      "source": "JSE17 DEV - 11 Stream"
+    },
+    {
+      "id": "streams-002",
+      "difficulty": 2,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.stream.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        Stream<String> s = Stream.of(\"x\", \"y\");\n        s.forEach(System.out::print);\n        System.out.println(s.count());\n    }\n}",
+      "options": [
+        "xy2",
+        "xy0",
+        "Compilation fails.",
+        "xy followed by an IllegalStateException",
+        "2"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`forEach` è un'operazione finale: stampa `xy` e chiude lo stream. La successiva chiamata a `count()` sullo stesso stream compila, ma a runtime lancia `IllegalStateException: stream has already been operated upon or closed`. Uno stream si può consumare una sola volta; per contare servirebbe un nuovo stream.",
+      "source": "JSE17 DEV - 11 Stream"
+    },
+    {
+      "id": "streams-003",
+      "difficulty": 2,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        List<Integer> list = List.of(1, 3, 4, 5, 6);\n        boolean r = list.stream().noneMatch(n -> {\n            System.out.print(n + \" \");\n            return n % 2 == 0;\n        });\n        System.out.println(r);\n    }\n}",
+      "options": [
+        "1 3 4 5 6 false",
+        "1 3 false",
+        "1 3 4 false",
+        "1 3 4 5 6 true",
+        "4 false"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`noneMatch` è cortocircuitata: restituisce true solo se nessun elemento soddisfa il predicato, quindi appena trova un elemento pari sa già che il risultato è false e smette. Valuta 1 e 3 (dispari), poi 4 (pari) e si ferma: 5 e 6 non vengono mai esaminati. Output: `1 3 4 false`.",
+      "source": "JSE17 DEV - 11 Stream"
+    },
+    {
+      "id": "streams-004",
+      "difficulty": 1,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.*;\nimport java.util.stream.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        List<Integer> list = new ArrayList<>(List.of(3, 1, 2));\n        List<Integer> res = list.stream().sorted().map(n -> n * 10).collect(Collectors.toList());\n        System.out.println(list + \" \" + res);\n    }\n}",
+      "options": [
+        "[1, 2, 3] [10, 20, 30]",
+        "[3, 1, 2] [10, 20, 30]",
+        "[3, 1, 2] [30, 10, 20]",
+        "[10, 20, 30] [10, 20, 30]"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Le operazioni su uno stream non modificano la sorgente: `sorted()` ordina gli elementi che scorrono nello stream, non la lista, che resta `[3, 1, 2]`. Il risultato raccolto è ordinato e moltiplicato per 10: `[10, 20, 30]`.",
+      "source": "JSE17 DEV - 11 Stream"
+    },
+    {
+      "id": "streams-005",
+      "difficulty": 3,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.stream.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        System.out.println(Stream.of(1, 2, 3).reduce(10, Integer::sum) + \" \"\n            + Stream.<Integer>empty().reduce(Integer::sum));\n    }\n}",
+      "options": [
+        "6 Optional.empty",
+        "16 null",
+        "16 0",
+        "16 Optional.empty",
+        "Compilation fails."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "La forma `reduce(identity, accumulator)` parte dal valore iniziale 10 e somma gli elementi: 10 + 1 + 2 + 3 = 16 (l'identity non è neutra, quindi entra nel risultato). La forma senza identity restituisce un `Optional<Integer>`: su uno stream vuoto non c'è alcun risultato, quindi si ottiene un Optional vuoto, il cui `toString()` è `Optional.empty`.",
+      "source": "JSE17 DEV - 11 Stream"
+    },
+    {
+      "id": "streams-006",
+      "difficulty": 2,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.stream.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        int total = Stream.of(\"ab\", \"cde\", \"f\")\n            .reduce(0, (acc, s) -> acc + s.length(), Integer::sum);\n        System.out.println(total);\n    }\n}",
+      "options": [
+        "6",
+        "abcdef",
+        "3",
+        "Compilation fails.",
+        "0"
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "È la forma a tre argomenti di `reduce`: l'identity è un Integer (0), l'accumulatore `BiFunction<Integer, String, Integer>` somma al parziale la lunghezza di ogni stringa e il combiner `Integer::sum` unisce i parziali (usato negli stream paralleli). La forma a tre argomenti serve proprio quando il tipo del risultato è diverso da quello degli elementi. Risultato: 2 + 3 + 1 = 6.",
+      "source": "JSE17 DEV - 11 Stream"
+    },
+    {
+      "id": "streams-007",
+      "difficulty": 2,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.*;\nimport java.util.stream.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        Map<Integer, Long> m = Stream.of(\"aa\", \"b\", \"cc\", \"ddd\", \"e\")\n            .collect(Collectors.groupingBy(String::length, TreeMap::new, Collectors.counting()));\n        System.out.println(m);\n    }\n}",
+      "options": [
+        "{1=[b, e], 2=[aa, cc], 3=[ddd]}",
+        "{2=2, 1=2, 3=1}",
+        "{1=2, 2=2, 3=1}",
+        "{1=2, 2=4, 3=3}",
+        "Compilation fails."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`groupingBy` con tre argomenti riceve la funzione di classificazione (la lunghezza), la map factory (`TreeMap::new`, quindi chiavi ordinate) e il collector a valle `counting()`, che sostituisce la lista con il numero di elementi (di tipo Long). Lunghezza 1: b, e; lunghezza 2: aa, cc; lunghezza 3: ddd. Output `{1=2, 2=2, 3=1}`.",
+      "source": "JSE17 DEV - 11 Stream"
+    },
+    {
+      "id": "streams-008",
+      "difficulty": 3,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.*;\nimport java.util.stream.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        Map<Boolean, List<Integer>> p = Stream.of(2, 4, 6)\n            .collect(Collectors.partitioningBy(n -> n > 10));\n        Map<Boolean, List<Integer>> g = Stream.of(2, 4, 6)\n            .collect(Collectors.groupingBy(n -> n > 10));\n        System.out.println(p + \" \" + g);\n    }\n}",
+      "options": [
+        "{false=[2, 4, 6]} {false=[2, 4, 6]}",
+        "{false=[2, 4, 6], true=[]} {false=[2, 4, 6], true=[]}",
+        "{false=[2, 4, 6], true=[]} {false=[2, 4, 6]}",
+        "{false=[2, 4, 6]} {false=[2, 4, 6], true=[]}"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`partitioningBy` restituisce sempre una mappa con entrambe le chiavi `false` e `true`, anche se una delle partizioni è vuota. `groupingBy` invece crea solo le chiavi per cui esiste almeno un elemento: nessun numero è maggiore di 10, quindi c'è solo la chiave `false`.",
+      "source": "JSE17 DEV - 11 Stream"
+    },
+    {
+      "id": "streams-009",
+      "difficulty": 3,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.*;\nimport java.util.stream.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        Map<Character, Integer> m = Stream.of(\"apple\", \"banana\", \"avocado\")\n            .collect(Collectors.toMap(s -> s.charAt(0), String::length));\n        System.out.println(m);\n    }\n}",
+      "options": [
+        "{a=5, b=6}",
+        "{a=7, b=6}",
+        "{a=12, b=6}",
+        "An IllegalStateException is thrown at runtime.",
+        "Compilation fails."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "\"apple\" e \"avocado\" producono la stessa chiave `a`. `toMap` con due soli argomenti (key mapper e value mapper) non sa come risolvere le collisioni e lancia `IllegalStateException: Duplicate key a`. Non vince né il primo né l'ultimo valore: per ottenere `{a=12, b=6}` servirebbe la merge function come terzo argomento, ad esempio `Integer::sum`.",
+      "source": "JSE17 DEV - 11 Stream"
+    },
+    {
+      "id": "streams-010",
+      "difficulty": 1,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.stream.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        String r = Stream.of(\"x\", \"y\", \"z\").collect(Collectors.joining(\"-\", \"[\", \"]\"));\n        System.out.println(r);\n    }\n}",
+      "options": [
+        "x-y-z",
+        "[x]-[y]-[z]",
+        "[-x-y-z-]",
+        "xyz",
+        "[x-y-z]"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "`joining(delimiter, prefix, suffix)` inserisce il delimitatore solo tra un elemento e il successivo e aggiunge prefisso e suffisso una sola volta, all'inizio e alla fine del risultato complessivo: `[x-y-z]`. Prefisso e suffisso non vengono applicati ai singoli elementi.",
+      "source": "JSE17 DEV - 11 Stream"
+    },
+    {
+      "id": "streams-011",
+      "difficulty": 2,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        Optional<String> empty = Optional.empty();\n        Optional<String> full = Optional.of(\"abc\");\n        System.out.print(empty.map(String::length).orElse(-1) + \" \");\n        System.out.print(full.filter(s -> s.startsWith(\"b\")).isPresent() + \" \");\n        System.out.println(full.map(String::length).orElseGet(() -> 0));\n    }\n}",
+      "options": [
+        "0 false 3",
+        "-1 true 3",
+        "Compilation fails.",
+        "-1 false 3",
+        "A NoSuchElementException is thrown at runtime."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`map` su un Optional vuoto restituisce un Optional vuoto, quindi `orElse(-1)` produce -1. `filter` restituisce un Optional vuoto se il valore non soddisfa il predicato: \"abc\" non inizia con \"b\", quindi `isPresent()` è false. Infine `map(String::length)` su \"abc\" dà 3 e `orElseGet` non invoca il Supplier. Nessun `get()` viene chiamato, quindi non c'è `NoSuchElementException`.",
+      "source": "JSE17 DEV - 11 Stream"
+    },
+    {
+      "id": "streams-012",
+      "difficulty": 1,
+      "prompt": "Which two statements about java.util.Optional are true? (Choose two.)",
+      "code": null,
+      "options": [
+        "Calling get() on an empty Optional returns null.",
+        "Optional.of(null) throws a NullPointerException.",
+        "orElseGet() takes a value of type T as its argument.",
+        "Optional.ofNullable(null) returns an empty Optional.",
+        "isPresent() returns an Optional<Boolean>."
+      ],
+      "correct": [
+        1,
+        3
+      ],
+      "explanation": "`Optional.of` richiede un valore non nullo e con null lancia `NullPointerException`; `Optional.ofNullable(null)` restituisce invece `Optional.empty()`. `get()` su un Optional vuoto lancia `NoSuchElementException`, non restituisce null. `orElseGet` riceve un `Supplier<? extends T>` (è `orElse` a ricevere un valore T) e `isPresent()` restituisce un semplice boolean.",
+      "source": "JSE17 DEV - 11 Stream"
+    },
+    {
+      "id": "streams-013",
+      "difficulty": 2,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.stream.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        double avg = IntStream.rangeClosed(1, 4).average().getAsDouble();\n        int sum = IntStream.range(1, 4).sum();\n        System.out.println(avg + \" \" + sum);\n    }\n}",
+      "options": [
+        "2.0 6",
+        "2.5 10",
+        "2.5 6",
+        "3.0 10",
+        "Compilation fails."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`rangeClosed(1, 4)` include l'estremo superiore: 1, 2, 3, 4, con media 2.5. `average()` restituisce un `OptionalDouble`, da cui si estrae il valore con `getAsDouble()`. `range(1, 4)` esclude il 4: 1 + 2 + 3 = 6.",
+      "source": "JSE17 DEV - 11 Stream"
+    },
+    {
+      "id": "streams-014",
+      "difficulty": 3,
+      "prompt": "The following code does not compile. Which three changes, applied independently, make it compile and print 12? (Choose three.)",
+      "code": "import java.util.stream.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        System.out.println(Stream.of(1, 2, 3).map(x -> x * 2).sum());\n    }\n}",
+      "options": [
+        "Replace `map(x -> x * 2)` with `mapToInt(x -> x * 2)`",
+        "Replace `sum()` with `count()`",
+        "Replace `sum()` with `reduce(0, Integer::sum)`",
+        "Insert `.boxed()` before `.sum()`",
+        "Replace `sum()` with `collect(Collectors.summingInt(x -> x))`",
+        "Replace `sum()` with `max()`"
+      ],
+      "correct": [
+        0,
+        2,
+        4
+      ],
+      "explanation": "`map` restituisce uno `Stream<Integer>`, che non ha il metodo `sum()`. Funzionano: `mapToInt`, che produce un `IntStream` dotato di `sum()`; la riduzione `reduce(0, Integer::sum)`; il collector `summingInt`. `count()` compila ma stampa 3; `boxed()` esiste solo sugli stream primitivi; `max()` su `Stream` richiede un `Comparator` e restituirebbe comunque un Optional.",
+      "source": "JSE17 DEV - 11 Stream"
+    },
+    {
+      "id": "streams-015",
+      "difficulty": 2,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.*;\nimport java.util.stream.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        List<List<Integer>> data = List.of(List.of(1, 2), List.of(3), List.of());\n        List<Integer> r = data.stream()\n            .flatMap(List::stream)\n            .map(i -> i * 10)\n            .collect(Collectors.toList());\n        System.out.println(r);\n    }\n}",
+      "options": [
+        "[[10, 20], [30], []]",
+        "[10, 20, 30]",
+        "[10, 20, 30, 0]",
+        "Compilation fails.",
+        "[1, 2, 3]"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`flatMap` applica a ogni lista la funzione `List::stream` e fonde gli stream risultanti in un unico `Stream<Integer>` con i singoli elementi (la lista vuota non contribuisce con alcun elemento). Poi `map` moltiplica ogni elemento per 10. Con `map(List::stream)` si otterrebbe invece uno `Stream<Stream<Integer>>`.",
+      "source": "JSE17 DEV - 11 Stream"
+    },
+    {
+      "id": "streams-016",
+      "difficulty": 1,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.stream.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        Stream.iterate(1, n -> n * 2)\n            .limit(5)\n            .skip(2)\n            .forEach(n -> System.out.print(n + \" \"));\n    }\n}",
+      "options": [
+        "1 2 4",
+        "4 8 16 32 64",
+        "1 2 4 8 16",
+        "4 8 16",
+        "The program never terminates."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`iterate(1, n -> n * 2)` genera uno stream infinito 1, 2, 4, 8, 16, 32, ... `limit(5)` lo tronca ai primi cinque elementi (1, 2, 4, 8, 16), rendendolo finito, e `skip(2)` scarta i primi due. Restano 4, 8 e 16. L'ordine delle operazioni conta: con `skip` prima di `limit` si otterrebbero 4 8 16 32 64.",
+      "source": "JSE17 DEV - 11 Stream"
+    },
+    {
+      "id": "streams-017",
+      "difficulty": 3,
+      "prompt": "Which two statements about parallel streams are true? (Choose two.)",
+      "code": null,
+      "options": [
+        "Calling sequential() after parallel() in the same pipeline throws an IllegalStateException.",
+        "forEachOrdered() processes the elements in encounter order even on a parallel stream.",
+        "findAny() on a parallel stream always returns the first element of the source list.",
+        "In a parallel reduce(), the identity value can be applied once per chunk, so it must be neutral for the accumulator.",
+        "parallelStream() reorders the elements of the source collection."
+      ],
+      "correct": [
+        1,
+        3
+      ],
+      "explanation": "`forEachOrdered` garantisce l'ordine di incontro anche in parallelo (a scapito delle prestazioni), mentre `forEach` no. Nella riduzione parallela il lavoro è diviso in chunk e l'identity viene usata in ciascuno, quindi deve essere neutra (es. 0 per la somma). `parallel()` e `sequential()` impostano solo un flag e vince l'ultima chiamata, senza eccezioni; `findAny` può restituire un elemento qualsiasi; la sorgente non viene mai modificata.",
+      "source": "JSE17 DEV - 11 Stream"
+    },
+    {
+      "id": "streams-018",
+      "difficulty": 3,
+      "prompt": "What is the result of compiling and running the following code?",
+      "code": "import java.util.*;\nimport java.util.stream.*;\n\npublic class Test {\n    public static void main(String[] args) {\n        List<String> r = Stream.of(\"pear\", \"fig\", \"apple\", \"fig\", \"kiwi\")\n            .distinct()\n            .sorted(Comparator.comparing(String::length)\n                              .thenComparing(Comparator.reverseOrder()))\n            .toList();\n        System.out.println(r);\n    }\n}",
+      "options": [
+        "[fig, kiwi, pear, apple]",
+        "[apple, pear, kiwi, fig]",
+        "[fig, fig, pear, kiwi, apple]",
+        "Compilation fails.",
+        "[fig, pear, kiwi, apple]"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "`distinct()` elimina il secondo \"fig\" (usa `equals`). Il comparatore ordina prima per lunghezza crescente (fig 3, pear e kiwi 4, apple 5) e, a parità di lunghezza, in ordine alfabetico inverso grazie a `thenComparing(Comparator.reverseOrder())`: \"pear\" viene prima di \"kiwi\". `Stream.toList()` esiste da Java 16 ed è quindi disponibile in Java 17.",
+      "source": "JSE17 DEV - 11 Stream"
+    }
+  ]
+}

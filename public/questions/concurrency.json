@@ -1,0 +1,331 @@
+{
+  "topic": "concurrency",
+  "keyPoints": [
+    {
+      "title": "start() contro run()",
+      "body": "Solo `start()` crea un nuovo thread di esecuzione e poi invoca `run()` sul nuovo call stack. Invocare `run()` direttamente esegue il codice nel thread corrente (es. `main`), senza multithreading. Invocare `start()` una seconda volta sullo stesso oggetto, anche dopo la terminazione, lancia `IllegalThreadStateException`."
+    },
+    {
+      "title": "Stati di un thread",
+      "body": "Le costanti di `Thread.State` sono `NEW`, `RUNNABLE`, `BLOCKED`, `WAITING`, `TIMED_WAITING` e `TERMINATED`: non esistono `RUNNING` o `DEAD` come costanti. `sleep()` e `yield()` sono statici e agiscono sempre sul thread corrente, anche se invocati tramite un riferimento a un altro `Thread`. `join()` mette in attesa il thread corrente finché l'altro thread termina."
+    },
+    {
+      "title": "synchronized e intrinsic lock",
+      "body": "Ogni oggetto ha un solo lock; solo metodi e blocchi possono essere `synchronized` (non variabili né classi) e non si può sincronizzare su un primitivo. Un metodo `static synchronized` acquisisce il lock sull'oggetto `Class`, quindi non blocca i metodi `synchronized` di istanza. Un thread in `sleep()`, `yield()` o `join()` NON rilascia i lock che detiene."
+    },
+    {
+      "title": "wait(), notify() e notifyAll()",
+      "body": "Sono metodi di `Object` e vanno invocati solo da un thread che detiene il lock su quell'oggetto, altrimenti si ottiene `IllegalMonitorStateException` (unchecked) a runtime: il compilatore non lo verifica. `wait()` rilascia il lock e lancia l'eccezione checked `InterruptedException`; `notify()` non lancia eccezioni checked. La `wait()` andrebbe messa in un ciclo che verifica la condizione."
+    },
+    {
+      "title": "Executor, Callable e Future",
+      "body": "`Executors` è la classe factory (`newSingleThreadExecutor()`, `newFixedThreadPool(n)`, `newScheduledThreadPool(n)`), `Executor`/`ExecutorService` sono interfacce. `Callable<V>.call()` ritorna un valore e può lanciare `Exception`, `Runnable.run()` no; `execute()` accetta solo `Runnable`. `submit()` non è bloccante, `Future.get()` sì; con `submit(Runnable)` il `get()` restituisce `null`."
+    },
+    {
+      "title": "Classi Atomic",
+      "body": "`AtomicInteger` e `AtomicLong` estendono `Number` ma NON sono wrapper: niente autounboxing, quindi `atomic++` non compila. Attenzione all'ordine: `getAndIncrement()` restituisce il valore vecchio, `incrementAndGet()` quello nuovo. `compareAndSet(expect, update)` aggiorna solo se il valore corrente è uguale a `expect` e restituisce un `boolean`."
+    },
+    {
+      "title": "Collection concorrenti",
+      "body": "`CopyOnWriteArrayList` e `CopyOnWriteArraySet` creano una copia dell'array a ogni modifica: un iteratore lavora su uno snapshot, quindi modificare la lista durante il for-each non lancia `ConcurrentModificationException` e gli elementi aggiunti non vengono visitati. `ConcurrentHashMap` non accetta chiavi né valori `null`. `putIfAbsent()`, `remove(k, v)` e `replace(k, old, new)` di `ConcurrentMap` sono operazioni atomiche."
+    },
+    {
+      "title": "Lock, CyclicBarrier e liveness",
+      "body": "Con `Lock` il rilascio è manuale: `unlock()` va in un `finally`; `ReentrantLock` è rientrante (serve un `unlock()` per ogni `lock()`) e `unlock()` senza possedere il lock lancia `IllegalMonitorStateException`. `CyclicBarrier(n, azione)` sblocca i thread solo quando `n` thread hanno chiamato `await()`: con un pool di meno di `n` thread il programma resta bloccato. Deadlock = thread bloccati a vicenda, livelock = thread attivi che non progrediscono, starvation = thread che non ottiene mai la risorsa."
+    }
+  ],
+  "questions": [
+    {
+      "id": "concurrency-001",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        Thread t = new Thread(() -> System.out.print(Thread.currentThread().getName()));\n        t.setName(\"worker\");\n        t.run();\n    }\n}",
+      "options": [
+        "worker",
+        "main",
+        "Thread-0",
+        "Compilation fails.",
+        "The output cannot be determined."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Il codice invoca `run()` direttamente e non `start()`: nessun nuovo thread viene avviato e la lambda viene eseguita nel call stack del thread corrente, cioè `main`. Per questo `Thread.currentThread().getName()` restituisce `main` e non `worker` (il nome impostato sull'oggetto `t`, che però non è mai diventato un thread di esecuzione). `Thread-0` sarebbe il nome di default solo se non fosse stato chiamato `setName()`, e solo con `start()`. L'output è deterministico perché c'è un solo thread.",
+      "source": "JSE17 DEV - 20 Threads - appendice"
+    },
+    {
+      "id": "concurrency-002",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    public static void main(String[] args) throws InterruptedException {\n        Thread t = new Thread(() -> System.out.print(\"A\"));\n        t.start();\n        t.join();\n        System.out.print(\"B\");\n        t.start();\n        System.out.print(\"C\");\n    }\n}",
+      "options": [
+        "ABAC is printed.",
+        "ABC is printed.",
+        "AB is printed, then an IllegalThreadStateException is thrown.",
+        "A is printed, then an IllegalThreadStateException is thrown.",
+        "The output cannot be determined."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Grazie a `join()` il thread `main` attende la fine di `t`, quindi `A` viene stampato sicuramente prima di `B`. Un thread terminato (stato `TERMINATED`) non può \"rinascere\": la seconda chiamata a `start()` lancia `IllegalThreadStateException` (unchecked), quindi `C` non viene mai stampato. Non si ottiene `ABAC` perché il thread non viene rieseguito, e l'output è deterministico proprio per via di `join()`.",
+      "source": "JSE17 DEV - 20 Threads - appendice"
+    },
+    {
+      "id": "concurrency-003",
+      "difficulty": 1,
+      "prompt": "Which are valid constants of the Thread.State enum? (Choose three.)",
+      "code": null,
+      "options": [
+        "RUNNING",
+        "NEW",
+        "DEAD",
+        "TIMED_WAITING",
+        "SLEEPING",
+        "BLOCKED"
+      ],
+      "correct": [
+        1,
+        3,
+        5
+      ],
+      "explanation": "`Thread.State` definisce esattamente `NEW`, `RUNNABLE`, `BLOCKED`, `WAITING`, `TIMED_WAITING` e `TERMINATED`. `RUNNING` e `DEAD` compaiono negli schemi concettuali del ciclo di vita (Running, Dead) ma non sono costanti dell'enum: un thread in esecuzione è `RUNNABLE` e uno terminato è `TERMINATED`. Un thread in `sleep()` si trova in `TIMED_WAITING`, non esiste `SLEEPING`.",
+      "source": "JSE17 DEV - 20 Threads - appendice"
+    },
+    {
+      "id": "concurrency-004",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "public class Main {\n    public static void main(String[] args) {\n        Object lock = new Object();\n        try {\n            System.out.print(\"start \");\n            lock.wait(100);\n            System.out.print(\"woke \");\n        } catch (InterruptedException e) {\n            System.out.print(\"interrupted \");\n        }\n        System.out.print(\"end\");\n    }\n}",
+      "options": [
+        "start is printed, then an IllegalMonitorStateException is thrown.",
+        "start woke end",
+        "start interrupted end",
+        "Compilation fails.",
+        "start is printed, then the program waits forever."
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "Il codice compila: `wait(long)` dichiara `InterruptedException`, che è gestita, e il compilatore non controlla se il thread possiede il lock. A runtime però `wait()` deve essere invocato dentro un blocco `synchronized (lock)`: il thread `main` non detiene il monitor di `lock`, quindi viene lanciata `IllegalMonitorStateException` (unchecked) subito dopo la stampa di `start `. Il `catch` non la intercetta e `end` non viene stampato.",
+      "source": "JSE17 DEV - 20 Threads - appendice"
+    },
+    {
+      "id": "concurrency-005",
+      "difficulty": 3,
+      "prompt": "Which statements about synchronization are true? (Choose two.)",
+      "code": null,
+      "options": [
+        "A thread that calls Thread.sleep() inside a synchronized block releases the monitor while it sleeps.",
+        "A static synchronized method acquires the lock of the Class object of its class.",
+        "An instance variable can be declared synchronized to make its reads and writes atomic.",
+        "Calling wait() on the monitor object releases that monitor until the thread is notified.",
+        "A static synchronized method and a synchronized instance method of the same class block each other."
+      ],
+      "correct": [
+        1,
+        3
+      ],
+      "explanation": "Un metodo `static synchronized` sincronizza sull'oggetto `Class` (equivale a `synchronized (MyClass.class)`), e `wait()` rilascia il lock dell'oggetto su cui è invocata finché il thread non viene notificato. È falso che `sleep()` rilasci il lock: un thread in sleep (così come in `yield()` o `join()`) mantiene i lock. Solo metodi e blocchi possono essere `synchronized`, non le variabili (per la visibilità esiste `volatile`). Infine metodi statici e di istanza sincronizzati usano lock diversi (`Class` contro `this`), quindi non si bloccano mai a vicenda.",
+      "source": "JSE17 DEV - 20 Threads - appendice"
+    },
+    {
+      "id": "concurrency-006",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.util.concurrent.*;\n\npublic class Main {\n    public static void main(String[] args) throws Exception {\n        ExecutorService es = Executors.newSingleThreadExecutor();\n        Future<?> f1 = es.submit(() -> System.out.print(\"run \"));\n        Future<Integer> f2 = es.submit(() -> 42);\n        System.out.print(f1.get() + \" \" + f2.get());\n        es.shutdown();\n    }\n}",
+      "options": [
+        "run 42",
+        "null 42",
+        "Compilation fails.",
+        "run null 42",
+        "The output cannot be determined."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "La prima lambda ha corpo `void` (`System.out.print`), quindi è un `Runnable`: `submit(Runnable)` restituisce comunque un `Future`, ma il suo `get()` restituisce `null`. La seconda lambda restituisce un valore ed è un `Callable<Integer>`, quindi `f2.get()` vale `42`. `get()` è bloccante: la stringa viene stampata solo dopo che il primo task ha già stampato `run `, quindi l'output è deterministico: `run null 42`.",
+      "source": "JSE17 DEV - 18 Concurrency"
+    },
+    {
+      "id": "concurrency-007",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.util.concurrent.*;\n\npublic class Main {\n    public static void main(String[] args) throws Exception {\n        ExecutorService es = Executors.newFixedThreadPool(2);\n        Future<String> f = es.submit(() -> {   // line 1\n            Thread.sleep(10);\n            return \"done\";\n        });\n        es.execute(() -> {                     // line 2\n            Thread.sleep(10);\n        });\n        System.out.println(f.get());\n        es.shutdown();\n    }\n}",
+      "options": [
+        "done",
+        "Compilation fails only at line 1.",
+        "Compilation fails only at line 2.",
+        "Compilation fails at both line 1 and line 2.",
+        "An ExecutionException is thrown at runtime."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Alla riga 1 la lambda restituisce un valore, quindi è un `Callable<String>`: `call()` dichiara `throws Exception`, perciò `Thread.sleep()` (che lancia la checked `InterruptedException`) è ammesso. Alla riga 2 `execute()` accetta solo un `Runnable`, il cui `run()` non dichiara eccezioni checked: l'`InterruptedException` non gestita causa un errore di compilazione. Il `throws Exception` di `main` non aiuta, perché l'eccezione nasce dentro il corpo della lambda.",
+      "source": "JSE17 DEV - 18 Concurrency"
+    },
+    {
+      "id": "concurrency-008",
+      "difficulty": 3,
+      "prompt": "Given:\n\nScheduledExecutorService s = Executors.newSingleThreadScheduledExecutor();\n\nand a static import of java.util.concurrent.TimeUnit.SECONDS, which statements compile? (Choose two.)",
+      "code": null,
+      "options": [
+        "s.scheduleAtFixedRate(() -> \"x\", 0, 1, SECONDS);",
+        "s.schedule(() -> \"x\", 1);",
+        "s.schedule(() -> \"x\", 1, SECONDS);",
+        "s.scheduleWithFixedDelay(() -> \"x\", 0, 1, SECONDS);",
+        "s.scheduleAtFixedRate(() -> System.out.print(\"x\"), 0, 1, SECONDS);"
+      ],
+      "correct": [
+        2,
+        4
+      ],
+      "explanation": "`schedule()` ha un overload con `Callable<V>` e uno con `Runnable`, entrambi con ritardo e `TimeUnit`: `schedule(() -> \"x\", 1, SECONDS)` compila e restituisce uno `ScheduledFuture<String>`. `scheduleAtFixedRate()` e `scheduleWithFixedDelay()` accettano solo un `Runnable`, quindi la lambda che restituisce `\"x\"` non è compatibile (un letterale non è un'espressione-istruzione, quindi non può essere il corpo di una lambda `void`), mentre quella con `System.out.print` sì. `schedule(() -> \"x\", 1)` non compila perché manca il parametro `TimeUnit`.",
+      "source": "JSE17 DEV - 18 Concurrency"
+    },
+    {
+      "id": "concurrency-009",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "import java.util.concurrent.atomic.AtomicInteger;\n\npublic class Main {\n    public static void main(String[] args) {\n        AtomicInteger ai = new AtomicInteger(5);\n        int a = ai.getAndIncrement();\n        int b = ai.incrementAndGet();\n        boolean c = ai.compareAndSet(6, 10);\n        int d = ai.getAndAdd(3);\n        System.out.println(a + \" \" + b + \" \" + c + \" \" + d + \" \" + ai.get());\n    }\n}",
+      "options": [
+        "5 7 true 10 13",
+        "5 7 false 7 10",
+        "6 7 false 7 10",
+        "5 6 false 6 9",
+        "6 8 false 8 11"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`getAndIncrement()` restituisce il valore vecchio (`a = 5`, valore ora 6); `incrementAndGet()` incrementa e restituisce il nuovo (`b = 7`). `compareAndSet(6, 10)` confronta il valore attuale 7 con 6: sono diversi, quindi non aggiorna e restituisce `false`. `getAndAdd(3)` restituisce il vecchio valore 7 e porta il contatore a 10. Risultato: `5 7 false 7 10`.",
+      "source": "JSE17 DEV - 18 Concurrency"
+    },
+    {
+      "id": "concurrency-010",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "import java.util.concurrent.atomic.AtomicInteger;\n\npublic class Main {\n    public static void main(String[] args) {\n        AtomicInteger count = new AtomicInteger(1);\n        count++;\n        System.out.println(count);\n    }\n}",
+      "options": [
+        "Compilation fails.",
+        "2",
+        "1",
+        "A NullPointerException is thrown at runtime.",
+        "An UnsupportedOperationException is thrown at runtime."
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "`AtomicInteger` estende `Number` ma non è una classe wrapper: non c'è autounboxing, quindi l'operatore `++` non è applicabile e la compilazione fallisce (`bad operand type AtomicInteger for unary operator '++'`). Per incrementare in modo atomico si usa `count.incrementAndGet()` o `count.getAndIncrement()`.",
+      "source": "JSE17 DEV - 18 Concurrency"
+    },
+    {
+      "id": "concurrency-011",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "import java.util.concurrent.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        ConcurrentMap<String, Integer> map = new ConcurrentHashMap<>();\n        System.out.print(map.putIfAbsent(\"a\", 1) + \" \");\n        System.out.print(map.putIfAbsent(\"a\", 2) + \" \");\n        System.out.print(map.replace(\"a\", 2, 3) + \" \");\n        System.out.print(map.remove(\"a\", 1) + \" \");\n        System.out.print(map);\n    }\n}",
+      "options": [
+        "null 1 true false {a=3}",
+        "1 2 false true {}",
+        "null null false false {a=1}",
+        "null 1 false false {a=1}",
+        "null 1 false true {}"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "Il primo `putIfAbsent()` inserisce `a=1` e restituisce `null` (chiave assente). Il secondo trova la chiave, NON sostituisce e restituisce il valore attuale `1`. `replace(\"a\", 2, 3)` sostituisce solo se la coppia `(a, 2)` esiste: il valore è 1, quindi restituisce `false`. `remove(\"a\", 1)` trova la coppia `(a, 1)`, la rimuove e restituisce `true`, per cui la mappa stampata è `{}`.",
+      "source": "JSE17 DEV - 18 Concurrency"
+    },
+    {
+      "id": "concurrency-012",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.util.*;\nimport java.util.concurrent.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        List<Integer> list = new CopyOnWriteArrayList<>(List.of(1, 2, 3));\n        for (Integer i : list) {\n            list.add(i * 10);\n        }\n        System.out.println(list);\n    }\n}",
+      "options": [
+        "[1, 2, 3]",
+        "[1, 2, 3, 10, 20, 30]",
+        "A ConcurrentModificationException is thrown at runtime.",
+        "The loop never terminates.",
+        "[1, 10, 2, 20, 3, 30]"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "L'iteratore di `CopyOnWriteArrayList` lavora su uno snapshot dell'array preso all'inizio del ciclo: ogni `add()` crea una nuova copia dell'array, quindi non viene lanciata `ConcurrentModificationException` (che si avrebbe con un `ArrayList`) e il ciclo visita solo i tre elementi originali, terminando. Gli elementi aggiunti finiscono in coda: `[1, 2, 3, 10, 20, 30]`.",
+      "source": "JSE17 DEV - 18 Concurrency"
+    },
+    {
+      "id": "concurrency-013",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "import java.util.concurrent.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        CyclicBarrier barrier = new CyclicBarrier(3, () -> System.out.print(\"GO \"));\n        ExecutorService es = Executors.newFixedThreadPool(2);\n        for (int i = 0; i < 3; i++) {\n            es.submit(() -> {\n                barrier.await();\n                System.out.print(\"passed \");\n                return null;\n            });\n        }\n        es.shutdown();\n    }\n}",
+      "options": [
+        "GO passed passed passed",
+        "passed passed passed GO",
+        "GO is printed once and the program terminates.",
+        "Nothing is printed and the program does not terminate.",
+        "A BrokenBarrierException is thrown."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "La barriera si apre solo quando 3 thread hanno chiamato `await()`, ma il pool ha soltanto 2 thread: entrambi restano bloccati su `await()` e il terzo task rimane in coda, senza mai poter essere eseguito. L'azione `GO ` non parte e nulla viene stampato. `shutdown()` non interrompe i task in corso, quindi i thread (non daemon) restano bloccati e il programma non termina. Con un pool di 3 thread l'output sarebbe `GO ` seguito da tre `passed ` (l'azione della barriera viene eseguita prima di sbloccare i thread). Il codice compila perché la lambda restituisce `null` ed è quindi un `Callable`, che può propagare le checked exception di `await()`.",
+      "source": "JSE17 DEV - 18 Concurrency"
+    },
+    {
+      "id": "concurrency-014",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.util.concurrent.*;\n\npublic class Main {\n    static int count = 0;\n    public static void main(String[] args) throws InterruptedException {\n        ExecutorService es = Executors.newFixedThreadPool(4);\n        for (int i = 0; i < 10_000; i++) {\n            es.execute(() -> count++);\n        }\n        es.shutdown();\n        es.awaitTermination(1, TimeUnit.MINUTES);\n        System.out.println(count);\n    }\n}",
+      "options": [
+        "10000",
+        "0",
+        "Compilation fails.",
+        "A ConcurrentModificationException is thrown at runtime.",
+        "A value of at most 10000; the exact output cannot be determined."
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "`count++` non è un'operazione atomica (lettura, incremento, scrittura) e 4 thread la eseguono in parallelo senza sincronizzazione: è una race condition, alcuni incrementi possono andare persi e il risultato può essere minore di 10000 (dipende dallo scheduling). `awaitTermination()` garantisce solo che tutti i task siano finiti prima della stampa. Il codice compila: `count++` è un'espressione-istruzione, quindi la lambda è un `Runnable` valido. Per un risultato corretto servirebbe `AtomicInteger` o un blocco `synchronized`.",
+      "source": "JSE17 DEV - 18 Concurrency"
+    },
+    {
+      "id": "concurrency-015",
+      "difficulty": 1,
+      "prompt": "Two threads each detect that the other one needs the same resource, so each releases what it holds, steps back and retries, over and over. Both threads remain active, but neither makes any progress. What is this condition called?",
+      "code": null,
+      "options": [
+        "Deadlock",
+        "Starvation",
+        "Race condition",
+        "Livelock"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "È un livelock: i thread non sono bloccati (a differenza del deadlock, in cui ciascuno attende per sempre un lock detenuto dall'altro) ma, cedendo continuamente il passo, non progrediscono, come le due auto sul ponte stretto. La starvation riguarda un thread che non riesce mai a ottenere la risorsa perché altri (es. a priorità più alta) la occupano. Una race condition è un risultato errato dovuto ad accessi concorrenti non sincronizzati.",
+      "source": "JSE17 DEV - 20 Threads - appendice"
+    },
+    {
+      "id": "concurrency-016",
+      "difficulty": 2,
+      "prompt": "What is the result?",
+      "code": "import java.util.concurrent.locks.ReentrantLock;\n\npublic class Main {\n    public static void main(String[] args) {\n        ReentrantLock lock = new ReentrantLock();\n        lock.lock();\n        lock.lock();\n        lock.unlock();\n        System.out.print(lock.isLocked() + \" \" + lock.getHoldCount() + \" \");\n        lock.unlock();\n        lock.unlock();\n        System.out.print(\"end\");\n    }\n}",
+      "options": [
+        "true 1 end",
+        "true 2 end",
+        "true 1 is printed, then an IllegalMonitorStateException is thrown.",
+        "false 0 end",
+        "false 1 is printed, then an IllegalMonitorStateException is thrown."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`ReentrantLock` è rientrante: lo stesso thread può acquisirlo più volte e deve rilasciarlo altrettante volte. Dopo due `lock()` e un `unlock()` il lock è ancora posseduto (`isLocked()` = `true`, `getHoldCount()` = 1). Il secondo `unlock()` lo rilascia completamente; il terzo viene invocato da un thread che non possiede più il lock e lancia `IllegalMonitorStateException`, quindi `end` non viene stampato.",
+      "source": "JSE17 DEV - 18 Concurrency"
+    }
+  ]
+}

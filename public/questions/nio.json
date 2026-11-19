@@ -1,0 +1,312 @@
+{
+  "topic": "nio",
+  "keyPoints": [
+    {
+      "title": "Path non tocca il file system",
+      "body": "`Path.of()` e `Paths.get()` creano solo un oggetto: il percorso può non esistere e non viene lanciata alcuna eccezione. Anche `getFileName()`, `getParent()`, `getRoot()`, `normalize()`, `resolve()` e `relativize()` lavorano solo sui token, e `toAbsolutePath()` antepone la directory corrente senza verificare che il file esista. Invece `toRealPath()` e i metodi di `Files` accedono al disco e lanciano `NoSuchFileException` se il file manca."
+    },
+    {
+      "title": "Elementi del path e subpath",
+      "body": "La root (`/`) non è un elemento: in `/a/b/c` si ha `getNameCount() == 3` e `getName(0)` è `a`. `subpath(begin, end)` usa indici a base 0 con `end` escluso e restituisce sempre un path relativo; indici fuori range lanciano `IllegalArgumentException`. Per un path relativo `getRoot()` restituisce `null`."
+    },
+    {
+      "title": "normalize() e equals()",
+      "body": "`normalize()` elimina i token `.` e risolve `x/..` senza accedere al file system. `equals()` confronta i path come stringhe di token, senza normalizzarli né renderli assoluti: un path relativo e il corrispondente assoluto non sono `equals`. `Files.isSameFile()` invece verifica se puntano allo stesso file."
+    },
+    {
+      "title": "resolve() e resolveSibling()",
+      "body": "`p.resolve(q)` accoda `q` a `p`; se `q` è assoluto il risultato è `q` stesso. `resolveSibling(q)` sostituisce l'ultimo elemento, cioè equivale a `getParent().resolve(q)`. Nessuno dei due crea file o directory."
+    },
+    {
+      "title": "relativize()",
+      "body": "`p.relativize(q)` costruisce il percorso che porta da `p` a `q` (risalendo con `..`). Entrambi i path devono essere assoluti oppure entrambi relativi: mescolarli lancia `IllegalArgumentException`. Per verificare il risultato: `p.resolve(risultato).normalize()` deve dare `q`."
+    },
+    {
+      "title": "Creare, copiare, spostare, cancellare",
+      "body": "`createDirectory()` fallisce se il genitore non esiste, `createDirectories()` crea anche le directory intermedie. `Files.copy()`/`move()` lanciano `FileAlreadyExistsException` se il target esiste, salvo `REPLACE_EXISTING`; la copia di una directory non copia il contenuto. `delete()` lancia `NoSuchFileException` se il file manca e `DirectoryNotEmptyException` su directory non vuote; `deleteIfExists()` restituisce `false` invece di lanciare."
+    },
+    {
+      "title": "Stream di Files: list, walk, find, lines",
+      "body": "`Files.list()` restituisce solo i figli diretti; `Files.walk()` è ricorsivo e include la directory di partenza (profondità 0); `Files.find()` vuole anche `maxDepth` e un `BiPredicate<Path, BasicFileAttributes>`. `Files.lines()` è lazy e restituisce `Stream<String>`, mentre `readAllLines()` restituisce `List<String>`. Questi stream vanno chiusi (try-with-resources) e l'operazione terminale si può eseguire una sola volta."
+    },
+    {
+      "title": "Attributi dei file",
+      "body": "`Files.readAttributes(path, BasicFileAttributes.class)` restituisce un oggetto con metodi come `size()`, `isDirectory()`, `creationTime()`; `Files.readAttributes(path, \"size,lastModifiedTime\")` restituisce una `Map<String, Object>`; `Files.getAttribute(path, \"size\")` restituisce `Object`. Le viste sono `basic` (default), `dos` e `posix`: una vista non supportata causa `UnsupportedOperationException`."
+    }
+  ],
+  "questions": [
+    {
+      "id": "nio-001",
+      "difficulty": 1,
+      "prompt": "The file /home/user/notes.txt does not exist on this Unix system. What is the result?",
+      "code": "import java.nio.file.*;\n\npublic class PathInfo {\n    public static void main(String[] args) {\n        Path p = Path.of(\"/home/user/notes.txt\");\n        System.out.println(p.getFileName() + \" \" + p.getParent() + \" \" + p.getRoot());\n    }\n}",
+      "options": [
+        "notes.txt /home/user /",
+        "notes.txt /home/user null",
+        "/home/user/notes.txt /home/user /",
+        "notes.txt home /",
+        "A NoSuchFileException is thrown at runtime."
+      ],
+      "correct": [
+        0
+      ],
+      "explanation": "`Path.of()` non accede al file system, quindi l'inesistenza del file non provoca eccezioni. `getFileName()` restituisce l'ultimo elemento (`notes.txt`), `getParent()` tutto il percorso tranne l'ultimo elemento (`/home/user`) e `getRoot()` la radice `/`. `getRoot()` restituirebbe `null` solo per un path relativo.",
+      "source": "JSE17 DEV - 16 File NIO"
+    },
+    {
+      "id": "nio-002",
+      "difficulty": 1,
+      "prompt": "No file or directory named x exists in the working directory. Which expressions throw an exception at runtime? (Choose two.)",
+      "code": null,
+      "options": [
+        "`Path.of(\"x\").normalize()`",
+        "`Path.of(\"x\").toRealPath()`",
+        "`Path.of(\"x\").toAbsolutePath()`",
+        "`Files.size(Path.of(\"x\"))`",
+        "`Path.of(\"x\").getFileName()`"
+      ],
+      "correct": [
+        1,
+        3
+      ],
+      "explanation": "`toRealPath()` deve risolvere il percorso reale sul disco e `Files.size()` deve leggere il file: entrambi lanciano `NoSuchFileException`. `normalize()` e `getFileName()` lavorano solo sui token del path; `toAbsolutePath()` si limita ad anteporre la directory di lavoro corrente senza verificare l'esistenza del file.",
+      "source": "JSE17 DEV - 16 File NIO"
+    },
+    {
+      "id": "nio-003",
+      "difficulty": 1,
+      "prompt": "The directory /data exists, but /data/a does not. Which statement creates the directory /data/a/b/c?",
+      "code": null,
+      "options": [
+        "`Files.createDirectory(Path.of(\"/data/a/b/c\"));`",
+        "`Files.mkdirs(Path.of(\"/data/a/b/c\"));`",
+        "`Path.of(\"/data/a/b/c\").createDirectories();`",
+        "`Files.createDirectories(Path.of(\"/data/a/b/c\"));`"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`Files.createDirectories()` crea anche tutte le directory intermedie mancanti. `Files.createDirectory()` presuppone che il genitore esista e qui lancerebbe `NoSuchFileException`. `Files.mkdirs()` non esiste (`mkdirs()` è un metodo della vecchia `java.io.File`) e `Path` non ha metodi per creare directory.",
+      "source": "JSE17 DEV - 16 File NIO"
+    },
+    {
+      "id": "nio-004",
+      "difficulty": 1,
+      "prompt": "What is the result?",
+      "code": "import java.nio.file.*;\n\npublic class Normalize {\n    public static void main(String[] args) {\n        Path p = Path.of(\"docs/../img/./logo.png\");\n        System.out.println(p.normalize());\n    }\n}",
+      "options": [
+        "docs/img/logo.png",
+        "../img/logo.png",
+        "img/logo.png",
+        "docs/../img/./logo.png",
+        "logo.png"
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "`normalize()` elimina i token `.` ridondanti e cancella ogni coppia `nome/..`: `docs/..` si annulla e `./` sparisce, quindi resta `img/logo.png`. Il metodo lavora solo sui token, senza verificare l'esistenza dei file, e il path resta relativo.",
+      "source": "JSE17 DEV - 16 File NIO"
+    },
+    {
+      "id": "nio-005",
+      "difficulty": 2,
+      "prompt": "Assuming a Unix file system, what is the result?",
+      "code": "import java.nio.file.*;\n\npublic class Names {\n    public static void main(String[] args) {\n        Path p = Path.of(\"/var/log/app/server.log\");\n        System.out.println(p.getNameCount() + \" \" + p.getName(0) + \" \" + p.subpath(1, 3));\n    }\n}",
+      "options": [
+        "5 / var/log",
+        "4 / log/app",
+        "4 var log/app/server.log",
+        "4 var log/app",
+        "An IllegalArgumentException is thrown at runtime."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "La root `/` non conta come elemento: gli elementi sono `var`, `log`, `app`, `server.log`, quindi `getNameCount()` è 4 e `getName(0)` è `var`. `subpath(1, 3)` prende gli indici 1 e 2 (l'estremo finale è escluso) e restituisce il path relativo `log/app`. Gli indici sono validi, quindi nessuna eccezione.",
+      "source": "JSE17 DEV - 16 File NIO"
+    },
+    {
+      "id": "nio-006",
+      "difficulty": 2,
+      "prompt": "Assuming a Unix file system, what is the result?",
+      "code": "import java.nio.file.*;\n\npublic class Resolve {\n    public static void main(String[] args) {\n        Path base = Path.of(\"/data/in\");\n        Path p1 = base.resolve(\"/tmp/x.txt\");\n        Path p2 = base.resolve(\"out/x.txt\");\n        Path p3 = Path.of(\"/data/in/a.txt\").resolveSibling(\"b.txt\");\n        System.out.println(p1 + \" \" + p2 + \" \" + p3);\n    }\n}",
+      "options": [
+        "/data/in/tmp/x.txt /data/in/out/x.txt /data/in/b.txt",
+        "/tmp/x.txt /data/in/out/x.txt /data/in/b.txt",
+        "/tmp/x.txt /data/in/out/x.txt /data/in/a.txt/b.txt",
+        "/data/in/tmp/x.txt /data/in/out/x.txt /data/b.txt"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "Se l'argomento di `resolve()` è un path assoluto, il risultato è l'argomento stesso: `p1` è `/tmp/x.txt`. Con un argomento relativo, invece, viene accodato: `p2` è `/data/in/out/x.txt`. `resolveSibling()` sostituisce l'ultimo elemento (`a.txt`) con l'argomento, quindi `p3` è `/data/in/b.txt`.",
+      "source": "JSE17 DEV - 16 File NIO"
+    },
+    {
+      "id": "nio-007",
+      "difficulty": 2,
+      "prompt": "Assuming a Unix file system, what is the result?",
+      "code": "import java.nio.file.*;\n\npublic class Relativize {\n    public static void main(String[] args) {\n        Path a = Path.of(\"/shop/items/books\");\n        Path b = Path.of(\"/shop/cart\");\n        System.out.println(a.relativize(b) + \" \" + b.relativize(a));\n    }\n}",
+      "options": [
+        "../cart ../items/books",
+        "../../cart items/books",
+        "../../cart ../items/books",
+        "cart items/books",
+        "An IllegalArgumentException is thrown at runtime."
+      ],
+      "correct": [
+        2
+      ],
+      "explanation": "Per andare da `/shop/items/books` a `/shop/cart` bisogna risalire due livelli (fino a `/shop`) e poi scendere in `cart`: `../../cart`. Nel verso opposto, da `/shop/cart` si risale di un livello e si scende in `items/books`: `../items/books`. Verifica: `a.resolve(\"../../cart\").normalize()` dà `/shop/cart`. Entrambi i path sono assoluti, quindi nessuna eccezione.",
+      "source": "JSE17 DEV - 16 File NIO"
+    },
+    {
+      "id": "nio-008",
+      "difficulty": 2,
+      "prompt": "Assuming a Unix file system, what is the result?",
+      "code": "import java.nio.file.*;\n\npublic class Mix {\n    public static void main(String[] args) {\n        Path abs = Path.of(\"/app/conf\");\n        Path rel = Path.of(\"conf/app.properties\");\n        System.out.println(abs.resolve(rel));\n        System.out.println(abs.relativize(rel));\n    }\n}",
+      "options": [
+        "/app/conf/conf/app.properties followed by ../../conf/app.properties",
+        "/app/conf/app.properties followed by app.properties",
+        "Compilation fails.",
+        "/app/conf/conf/app.properties, then an IllegalArgumentException is thrown",
+        "An IllegalArgumentException is thrown before anything is printed"
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "`resolve()` con un argomento relativo lo accoda semplicemente, senza eliminare il token ripetuto: si stampa `/app/conf/conf/app.properties`. `relativize()` invece richiede due path dello stesso tipo: qui uno è assoluto e l'altro relativo, quindi viene lanciata `IllegalArgumentException` a runtime. Il codice compila perché entrambi gli argomenti sono di tipo `Path`.",
+      "source": "JSE17 DEV - 16 File NIO"
+    },
+    {
+      "id": "nio-009",
+      "difficulty": 2,
+      "prompt": "Assuming the program has write access to the working directory, what is the result?",
+      "code": "import java.io.IOException;\nimport java.nio.file.*;\n\npublic class CopyDemo {\n    public static void main(String[] args) throws IOException {\n        Path src = Path.of(\"a.txt\");\n        Path dst = Path.of(\"b.txt\");\n        Files.writeString(src, \"new\");\n        Files.writeString(dst, \"old\");\n        try {\n            Files.copy(src, dst);\n        } catch (FileAlreadyExistsException e) {\n            System.out.print(\"exists \");\n        }\n        Files.copy(src, dst, StandardCopyOption.REPLACE_EXISTING);\n        System.out.print(Files.readString(dst));\n    }\n}",
+      "options": [
+        "new",
+        "old",
+        "exists old",
+        "exists new",
+        "Compilation fails."
+      ],
+      "correct": [
+        3
+      ],
+      "explanation": "Senza opzioni, `Files.copy()` non sovrascrive un target esistente e lancia `FileAlreadyExistsException`, intercettata: si stampa `exists `. La seconda copia usa `StandardCopyOption.REPLACE_EXISTING`, quindi `b.txt` viene sostituito con il contenuto di `a.txt` e si stampa `new`. `writeString`/`readString` esistono da Java 11.",
+      "source": "JSE17 DEV - 16 File NIO"
+    },
+    {
+      "id": "nio-010",
+      "difficulty": 2,
+      "prompt": "Given the directory tree described in the comment, what is the result?",
+      "code": "import java.io.IOException;\nimport java.nio.file.*;\nimport java.util.stream.Stream;\n\npublic class Count {\n    public static void main(String[] args) throws IOException {\n        // existing tree:  root/a.txt  and  root/sub/b.txt\n        Path root = Path.of(\"root\");\n        try (Stream<Path> s1 = Files.list(root);\n             Stream<Path> s2 = Files.walk(root);\n             Stream<Path> s3 = Files.walk(root, 1)) {\n            System.out.println(s1.count() + \" \" + s2.count() + \" \" + s3.count());\n        }\n    }\n}",
+      "options": [
+        "2 2 2",
+        "2 3 2",
+        "1 2 1",
+        "3 4 3",
+        "2 4 3"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "`Files.list()` restituisce solo i figli diretti: `a.txt` e `sub` (2). `Files.walk()` è ricorsivo e include anche la directory di partenza: `root`, `a.txt`, `sub`, `sub/b.txt` (4). Con `maxDepth = 1` si visitano la partenza (profondità 0) e i figli diretti (profondità 1): `root`, `a.txt`, `sub` (3).",
+      "source": "JSE17 DEV - 16 File NIO"
+    },
+    {
+      "id": "nio-011",
+      "difficulty": 3,
+      "prompt": "Given the files described in the comment, what is the result?",
+      "code": "import java.io.IOException;\nimport java.nio.file.*;\n\npublic class Cleaner {\n    public static void main(String[] args) throws IOException {\n        // root/sub/b.txt exists; ghost.txt does not exist\n        try {\n            Files.delete(Path.of(\"root/sub\"));\n            System.out.print(\"deleted \");\n        } catch (DirectoryNotEmptyException e) {\n            System.out.print(\"notEmpty \");\n        } catch (IOException e) {\n            System.out.print(\"io \");\n        }\n        System.out.print(Files.deleteIfExists(Path.of(\"ghost.txt\")) + \" \");\n        try {\n            Files.delete(Path.of(\"ghost.txt\"));\n        } catch (NoSuchFileException e) {\n            System.out.print(\"missing\");\n        }\n    }\n}",
+      "options": [
+        "deleted false missing",
+        "notEmpty false missing",
+        "io false missing",
+        "notEmpty true missing",
+        "notEmpty false, then an exception is thrown"
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`Files.delete()` non cancella mai una directory non vuota e lancia `DirectoryNotEmptyException`, intercettata dal primo `catch` (più specifico di `IOException`, quindi l'ordine è lecito). `deleteIfExists()` su un file inesistente non lancia eccezioni e restituisce `false`. `delete()` sullo stesso file inesistente lancia invece `NoSuchFileException`, intercettata: si stampa `missing`.",
+      "source": "JSE17 DEV - 16 File NIO"
+    },
+    {
+      "id": "nio-012",
+      "difficulty": 3,
+      "prompt": "What is the result?",
+      "code": "import java.io.IOException;\nimport java.nio.file.*;\n\npublic class Same {\n    public static void main(String[] args) throws IOException {\n        // the file data/f.txt exists in the working directory\n        Path p1 = Path.of(\"data/../data/f.txt\");\n        Path p2 = Path.of(\"data/f.txt\");\n        System.out.println(p1.equals(p2) + \" \"\n            + p1.normalize().equals(p2) + \" \"\n            + Files.isSameFile(p1, p2) + \" \"\n            + p2.equals(p2.toAbsolutePath()));\n    }\n}",
+      "options": [
+        "true true true true",
+        "false true true true",
+        "false false true false",
+        "false true false false",
+        "false true true false"
+      ],
+      "correct": [
+        4
+      ],
+      "explanation": "`equals()` confronta i token così come sono, senza normalizzare: `p1.equals(p2)` è `false`. Dopo `normalize()` il percorso diventa `data/f.txt`, quindi il secondo confronto è `true`. `Files.isSameFile()` accede al file system e verifica che i due path indichino lo stesso file esistente: `true`. Un path relativo non è mai `equals` alla sua versione assoluta: `false`.",
+      "source": "JSE17 DEV - 16 File NIO"
+    },
+    {
+      "id": "nio-013",
+      "difficulty": 3,
+      "prompt": "Given the files described in the comment, what is the result?",
+      "code": "import java.io.IOException;\nimport java.nio.file.*;\nimport java.util.stream.Stream;\n\npublic class Finder {\n    public static void main(String[] args) throws IOException {\n        // root/a.txt, root/sub/b.txt, root/sub/deep/c.txt, root/sub/deep/d.log\n        try (Stream<Path> s = Files.find(Path.of(\"root\"), 2,\n                (p, attr) -> attr.isRegularFile() && p.toString().endsWith(\".txt\"))) {\n            s.map(p -> p.getFileName().toString())\n             .sorted()\n             .forEach(n -> System.out.print(n + \" \"));\n        }\n    }\n}",
+      "options": [
+        "a.txt",
+        "a.txt b.txt",
+        "a.txt b.txt c.txt",
+        "a.txt b.txt c.txt d.log",
+        "Compilation fails."
+      ],
+      "correct": [
+        1
+      ],
+      "explanation": "`Files.find()` percorre l'albero come `walk()` fino a `maxDepth` e passa al `BiPredicate` sia il `Path` sia i `BasicFileAttributes`. La partenza `root` ha profondità 0, `a.txt` e `sub` profondità 1, `b.txt` e `deep` profondità 2; `c.txt` e `d.log` (profondità 3) non vengono visitati. Tra gli elementi visitati, i file regolari che finiscono in `.txt` sono `a.txt` e `b.txt`.",
+      "source": "JSE17 DEV - 16 File NIO"
+    },
+    {
+      "id": "nio-014",
+      "difficulty": 3,
+      "prompt": "Which statements about the java.nio.file.Files class are true? (Choose three.)",
+      "code": null,
+      "options": [
+        "`Files.list()` returns only the direct entries of a directory, without visiting subdirectories.",
+        "`Files.walk()` does not include the starting directory in the returned stream.",
+        "`Files.lines()` returns a lazily populated `Stream<String>` that should be closed after use.",
+        "`Files.readAllLines()` returns a `Stream<String>`.",
+        "`Files.copy()` applied to a non-empty directory also copies the files it contains.",
+        "`Files.move()` can move a non-empty directory to another name in the same directory."
+      ],
+      "correct": [
+        0,
+        2,
+        5
+      ],
+      "explanation": "Vere: `list()` non è ricorsivo; `lines()` legge il file in modo lazy e lo stream, che tiene aperto il file, va chiuso (try-with-resources); `move()` di una directory non vuota è consentito quando si tratta di uno spostamento/rinomina sullo stesso file store. False: `walk()` include la directory di partenza (profondità 0); `readAllLines()` restituisce una `List<String>`; `copy()` su una directory crea solo una directory vuota, senza il contenuto.",
+      "source": "JSE17 DEV - 16 File NIO"
+    },
+    {
+      "id": "nio-015",
+      "difficulty": 3,
+      "prompt": "Assume that p is a Path, that java.nio.file.*, java.nio.file.attribute.* and java.util.Map are imported, and that each statement appears in a method that declares throws IOException. Which statements compile? (Choose two.)",
+      "code": null,
+      "options": [
+        "`BasicFileAttributes a = Files.readAttributes(p, BasicFileAttributes.class);`",
+        "`long size = Files.getAttribute(p, \"size\");`",
+        "`BasicFileAttributes a = Files.getAttributes(p, BasicFileAttributes.class);`",
+        "`Map<String, Object> m = Files.readAttributes(p, \"size,lastModifiedTime\");`",
+        "`FileTime t = Files.readAttributes(p, \"lastModifiedTime\");`"
+      ],
+      "correct": [
+        0,
+        3
+      ],
+      "explanation": "`readAttributes(Path, Class<A>)` restituisce un oggetto del tipo richiesto (qui `BasicFileAttributes`), mentre `readAttributes(Path, String)` restituisce una `Map<String, Object>` con gli attributi elencati separati da virgola. `getAttribute()` restituisce `Object`, che non si può assegnare a `long` senza cast; `Files.getAttributes()` non esiste; `readAttributes(Path, String)` non restituisce un `FileTime`.",
+      "source": "JSE17 DEV - 16 File NIO"
+    }
+  ]
+}
